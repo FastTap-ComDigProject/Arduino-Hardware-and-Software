@@ -143,7 +143,6 @@ void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado
 bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmisor)
   if (radio.available()) {
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
-    bool var1;
     switch (Dato[0]) {
       case 0:  // Recibe usuario asignado
         Usuario = Dato[1];
@@ -162,32 +161,43 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
 }
 
 bool RecepcionReceptor() {          // Envio de mensajes por Transceptor (lado Receptor)
-  radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
-  switch (Dato[0]) {
-    case 0:  // Recibe solicitud para asignacion de usuario
-      EnvioReceptor(0);
-      break;
-    case 1:
-
-      break;
-    case 2:
-
-      break;
+  int var1, Usuario = radio.Avariable(); // Captura si hay un mensaje disponible y de que pipe proviene
+  if(var1){
+    radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
+    switch (Dato[0]) {
+      case 0:  // Recibe solicitud para asignacion de usuario
+        EnvioReceptor(0);
+        break;
+      case 1:
+  
+        break;
+      case 2:
+  
+        break;
+    }
+    return 1;  // Si recibe un mensaje devuelve 1
+  }else{
+    return 0;  // Si no recibe un mensaje devuelve 0
   }
 }
 bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado receptor)
-  switch (Serial.read()) {
-    case 0:  // Recibe lista de usuarios conectados
-      for (int i = 0; i < 6; i++) {
-        PipeOcupada[i] = bitRead(Serial.read(), i);
-      }
-      break;
-    case 1:
-
-      break;
-    case 2:
-
-      break;
+  if(Serial.Avariable()){
+    switch (Serial.read()) {
+      case 0:  // Recibe lista de usuarios conectados
+        for (int i = 0; i < 6; i++) {
+          PipeOcupada[i] = bitRead(Serial.read(), i);
+        }
+        break;
+      case 1:
+  
+        break;
+      case 2:
+  
+        break;
+    }
+    return 1;  // Si recibe un mensaje devuelve 1
+  }else{
+    return 0;  // Si no recibe un mensaje devuelve 0
   }
 }
 
@@ -520,12 +530,8 @@ void loop() {
   } else {
     radio.starListening();
     while(true){
-      if(Serial.Avariable()){
-        RecepcionSerial();
-      }
-      if(radio.Avariable()){
-        RecepcionReceptor();
-      }
+      RecepcionSerial();
+      RecepcionReceptor();
     }
   }
 }
