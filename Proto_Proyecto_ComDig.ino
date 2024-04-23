@@ -82,10 +82,13 @@ Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 
 void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Transmisor)
+  radio.stopListening(); // Transceptor modo para transmitir
+  bool var2;
   switch (var1) {
     case 0:                   // Solicitar asignacion de usuario
       Dato[0] = 0b00000000;   // Identificador
-      radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
+      radio.flush_rx();        // Limpia el buffer de recepcion para eliminar capturas antiguas
+      var2; radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
     case 1:
 
@@ -94,14 +97,16 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
 
       break;
   }
+  radio.starListening(); // Transceptor modo para recibir
+  return var2;
 }
 
 void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
-
+  radio.stopListening(); // Transceptor modo para transmitir
   switch (var1) {
     case 0:  // Envio asignacion de usuario
       for (int i = 0; i < 6; i++) {
-        if (PipeOcupada[i] == 0) {  // Recorre todas todo el vector en busca de una pipe disponible
+        if (PipeOcupada[i] == 0) {  // Recorre todo el vector en busca de una pipe disponible
           Dato[0] = 0b00000000;     // Identificador
           Dato[1] = i;              // Usuario a enviar
           radio.write(&Dato, 2);    // Envia los primeros 2 bytes del vector Data
@@ -115,6 +120,7 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
 
       break;
   }
+  radio.starListening(); // Transceptor modo para recibir
 }
 
 void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado receptor)
@@ -157,7 +163,7 @@ bool RecepcionReceptor() {          // Envio de mensajes por Transceptor (lado R
   radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
   switch (Dato[0]) {
     case 0:  // Recibe solicitud para asignacion de usuario
-
+      EnvioReceptor(0);
       break;
     case 1:
 
@@ -408,7 +414,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.print("RECONECTANDO");
       pantallita.display();
       break;
-    case 10:
+    case 10: // Actualizar porcentaje de bateria
       pantallita.fillRect(100, 0, 28, 16, BLACK);
       pantallita.drawBitmap(100, 0, LogoBateria, 28, 16, WHITE);
       pantallita.setTextSize(1);
@@ -480,13 +486,12 @@ void setup() {
 
 void loop() {
   if (Modo == 0) {   // Modo de transmision
-    int t_batt = 0;  // Configura el inicio del reloj para medir bateria en 0
     int t_ini = millis();
     Presiono = 0;
     Pantallas(0);              // Pantalla Transmisor
     while (!Conectado) {       // Ciclo cuando no esta conectado
       MedirBateria();          // Solicita medir nivel de bateria
-      Pantallas(10);           // Mostrar nivel de bateria
+      Pantallas(10);           // Actualizar porcentaje de bateria
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
         if ((millis() - t_ini) < 500) {
           Pantallas(1);  // Actualizacion poner "Presiona para conectar"
@@ -499,11 +504,19 @@ void loop() {
       Presiono == 0;
       EnvioTransmisor(0);                        // Solicitar asignacion de usuario
       Conectado = RecepcionTransmisor();         // Recibe usuario asignado
-      radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
-      radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
     }
-
+    radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
+    radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
   } else {
+    radio.starListening();
+    while(true){
+      if(Serial.Avariable()){
+        RecepcionSerial();
+      }
+      if(radio.Avariable()){
+        RecepcionReceptor();
+      }
+    }
   }
 }
