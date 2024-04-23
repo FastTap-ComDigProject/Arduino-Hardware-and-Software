@@ -110,6 +110,8 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
           Dato[0] = 0b00000000;     // Identificador
           Dato[1] = i;              // Usuario a enviar
           radio.write(&Dato, 2);    // Envia los primeros 2 bytes del vector Data
+          PipeOcupada[i] = 1; // Pone la pine como ocupada       
+          radio.openReadingPipe(i, Pipes[i]);  // Asigna pipe de lectura para el nuevo usuario
         }
       }
       break;
@@ -126,7 +128,7 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
 void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado receptor)
   switch (var1) {
     case 0:  // Solicitar lista de usuarios conectados
-      Serial.write(0b00000000);
+      Serial.write(0b00000000); // Envia identificador
       break;
     case 1:
 
@@ -477,11 +479,18 @@ void setup() {
     EnvioSerial(0);                                                    // Solicita lista de usuarios en el servidor
     while (!Serial.available()) {}                                     // Espera a recibir un mensaje serial
     RecepcionSerial();                                                 // Recibe la lista de usuarios en el servidor
+    for (int i = 0; i < 6; i++) {
+      if(PipeOcupada[i] == 1){
+        radio.openReadingPipe(i, Pipes[i]);  // Asigna pipes de lecturas para los usuarios conectados
+      }
+    }
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
   }
+  radio.openWritingPipe(DefaultPipe);     // Asigna pipe de escritura por defecto
+  radio.openReadingPipe(5, DefaultPipe);  // Asigna pipe de lecura por defecto
 }
 
 void loop() {
