@@ -83,8 +83,9 @@ Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Transmisor)
   switch (var1) {
-    case 0:  // Solicitar asignacion de usuario
-
+    case 0:                   // Solicitar asignacion de usuario
+      Dato[0] = 0b00000000;   // Identificador
+      radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
     case 1:
 
@@ -96,9 +97,16 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
 }
 
 void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
+
   switch (var1) {
     case 0:  // Envio asignacion de usuario
-
+      for (int i = 0; i < 6; i++) {
+        if (PipeOcupada[i] == 0) {  // Recorre todas todo el vector en busca de una pipe disponible
+          Dato[0] = 0b00000000;     // Identificador
+          Dato[1] = i;              // Usuario a enviar
+          radio.write(&Dato, 2);    // Envia los primeros 2 bytes del vector Data
+        }
+      }
       break;
     case 1:
 
@@ -490,7 +498,7 @@ void loop() {
       }
       Presiono == 0;
       EnvioTransmisor(0);                        // Solicitar asignacion de usuario
-      Conectado = RecepcionTransmisor();        // Recibe usuario asignado
+      Conectado = RecepcionTransmisor();         // Recibe usuario asignado
       radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
       radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
     }
