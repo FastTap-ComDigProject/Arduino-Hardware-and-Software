@@ -1,4 +1,2 @@
-# Welcome to your organization's demo respository
-This code repository (or "repo") is designed to demonstrate the best GitHub has to offer with the least amount of noise.
-
-The repo includes an `index.html` file (so it can render a web page), two GitHub Actions workflows, and a CSS stylesheet dependency.
+# Bienvenido
+Este espacio está dedicado a todo lo relacionado con Arduino en nuestro proyecto. Aquí, detallamos el hardware utilizado, visible en el diagrama esquemático e informal y en el diseño del montaje físico. Además, incluimos el diseño 3D donde se montó todo este hardware. En segundo lugar, compartimos el software, que corresponde al código que se ejecuta en el Arduino `TX&RX_Code.ino` y cómo interactúa con todo el hardware.
