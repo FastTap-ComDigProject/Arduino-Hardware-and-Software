@@ -486,6 +486,7 @@ void setup() {
   delay(1000);
   if (Serial.read() == 0) {                        // Si recibe un byte de 0 en la comunicacion serial...
     Modo = 1;                                      // Se configura en modo de recepcion
+    Pantallas(3); // Pantalla de inicio para el Receptor
     while (Serial.available()) { Serial.read(); }  // Vaciar el puerto serial
     EnvioSerial(0);                                // Solicita lista de usuarios en el servidor
     while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
@@ -497,6 +498,7 @@ void setup() {
     }
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
+    Pantallas(0); // Pantalla de inicio para el Transmisor
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
   }
@@ -525,6 +527,7 @@ void loop() {
       EnvioTransmisor(0);                 // Solicitar asignacion de usuario
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
     }
+    Pantallas(4);
     radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
     radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
