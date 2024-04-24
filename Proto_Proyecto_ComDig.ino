@@ -82,13 +82,14 @@ Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 
 void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Transmisor)
-  radio.stopListening(); // Transceptor modo para transmitir
+  radio.stopListening();          // Transceptor modo para transmitir
   bool var2;
   switch (var1) {
-    case 0:                   // Solicitar asignacion de usuario
-      Dato[0] = 0b00000000;   // Identificador
-      radio.flush_rx();        // Limpia el buffer de recepcion para eliminar capturas antiguas
-      var2; radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
+    case 0:                  // Solicitar asignacion de usuario
+      Dato[0] = 0b00000000;  // Identificador
+      radio.flush_rx();      // Limpia el buffer de recepcion para eliminar capturas antiguas
+      var2;
+      radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
     case 1:
 
@@ -97,20 +98,20 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
 
       break;
   }
-  radio.starListening(); // Transceptor modo para recibir
+  radio.startListening();  // Transceptor modo para recibir
   return var2;
 }
 
 void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
-  radio.stopListening(); // Transceptor modo para transmitir
+  radio.stopListening();        // Transceptor modo para transmitir
   switch (var1) {
     case 0:  // Envio asignacion de usuario
       for (int i = 0; i < 6; i++) {
-        if (PipeOcupada[i] == 0) {  // Recorre todo el vector en busca de una pipe disponible
-          Dato[0] = 0b00000000;     // Identificador
-          Dato[1] = i;              // Usuario a enviar
-          radio.write(&Dato, 2);    // Envia los primeros 2 bytes del vector Data
-          PipeOcupada[i] = 1; // Pone la pine como ocupada       
+        if (PipeOcupada[i] == 0) {             // Recorre todo el vector en busca de una pipe disponible
+          Dato[0] = 0b00000000;                // Identificador
+          Dato[1] = i;                         // Usuario a enviar
+          radio.write(&Dato, 2);               // Envia los primeros 2 bytes del vector Data
+          PipeOcupada[i] = 1;                  // Pone la pine como ocupada
           radio.openReadingPipe(i, Pipes[i]);  // Asigna pipe de lectura para el nuevo usuario
         }
       }
@@ -122,13 +123,13 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
 
       break;
   }
-  radio.starListening(); // Transceptor modo para recibir
+  radio.startListening();  // Transceptor modo para recibir
 }
 
 void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado receptor)
   switch (var1) {
-    case 0:  // Solicitar lista de usuarios conectados
-      Serial.write(0b00000000); // Envia identificador
+    case 0:                      // Solicitar lista de usuarios conectados
+      Serial.write(0b00000000);  // Envia identificador
       break;
     case 1:
 
@@ -160,28 +161,28 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
   }
 }
 
-bool RecepcionReceptor() {          // Envio de mensajes por Transceptor (lado Receptor)
-  int var1, Usuario = radio.Avariable(); // Captura si hay un mensaje disponible y de que pipe proviene
-  if(var1){
+bool RecepcionReceptor() {               // Envio de mensajes por Transceptor (lado Receptor)
+  int var1 = radio.available(&Usuario);  // Captura si hay un mensaje disponible y de que pipe proviene
+  if (var1) {
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
     switch (Dato[0]) {
       case 0:  // Recibe solicitud para asignacion de usuario
         EnvioReceptor(0);
         break;
       case 1:
-  
+
         break;
       case 2:
-  
+
         break;
     }
     return 1;  // Si recibe un mensaje devuelve 1
-  }else{
+  } else {
     return 0;  // Si no recibe un mensaje devuelve 0
   }
 }
 bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado receptor)
-  if(Serial.Avariable()){
+  if (Serial.available()) {
     switch (Serial.read()) {
       case 0:  // Recibe lista de usuarios conectados
         for (int i = 0; i < 6; i++) {
@@ -189,14 +190,14 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         }
         break;
       case 1:
-  
+
         break;
       case 2:
-  
+
         break;
     }
     return 1;  // Si recibe un mensaje devuelve 1
-  }else{
+  } else {
     return 0;  // Si no recibe un mensaje devuelve 0
   }
 }
@@ -426,7 +427,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.print("RECONECTANDO");
       pantallita.display();
       break;
-    case 10: // Actualizar porcentaje de bateria
+    case 10:  // Actualizar porcentaje de bateria
       pantallita.fillRect(100, 0, 28, 16, BLACK);
       pantallita.drawBitmap(100, 0, LogoBateria, 28, 16, WHITE);
       pantallita.setTextSize(1);
@@ -483,14 +484,14 @@ void setup() {
   noTone(buzzerPin);  // Detenemos el sonido del buzzer
 
   delay(1000);
-  if (Serial.read() == 0) {                                            // Si recibe un byte de 0 en la comunicacion serial...
-    Modo = 1;                                                          // Se configura en modo de recepcion
-    while (Serial.available()) { Serial.read(); }                      // Vaciar el puerto serial
-    EnvioSerial(0);                                                    // Solicita lista de usuarios en el servidor
-    while (!Serial.available()) {}                                     // Espera a recibir un mensaje serial
-    RecepcionSerial();                                                 // Recibe la lista de usuarios en el servidor
+  if (Serial.read() == 0) {                        // Si recibe un byte de 0 en la comunicacion serial...
+    Modo = 1;                                      // Se configura en modo de recepcion
+    while (Serial.available()) { Serial.read(); }  // Vaciar el puerto serial
+    EnvioSerial(0);                                // Solicita lista de usuarios en el servidor
+    while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
+    RecepcionSerial();                             // Recibe la lista de usuarios en el servidor
     for (int i = 0; i < 6; i++) {
-      if(PipeOcupada[i] == 1){
+      if (PipeOcupada[i] == 1) {
         radio.openReadingPipe(i, Pipes[i]);  // Asigna pipes de lecturas para los usuarios conectados
       }
     }
@@ -504,7 +505,7 @@ void setup() {
 }
 
 void loop() {
-  if (Modo == 0) {   // Modo de transmision
+  if (Modo == 0) {  // Modo de transmision
     int t_ini = millis();
     Presiono = 0;
     Pantallas(0);              // Pantalla Transmisor
@@ -521,15 +522,15 @@ void loop() {
         }
       }
       Presiono == 0;
-      EnvioTransmisor(0);                        // Solicitar asignacion de usuario
-      Conectado = RecepcionTransmisor();         // Recibe usuario asignado
+      EnvioTransmisor(0);                 // Solicitar asignacion de usuario
+      Conectado = RecepcionTransmisor();  // Recibe usuario asignado
     }
     radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
     radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
   } else {
-    radio.starListening();
-    while(true){
+    radio.startListening();
+    while (true) {
       RecepcionSerial();
       RecepcionReceptor();
     }
