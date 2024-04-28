@@ -24,8 +24,8 @@ const uint8_t Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }
 bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Modo, Presiono, Conectado;
 
 int Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
-int Puntaje;
-uint8_t Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Pregunta, TurnoAsignado, TurnoActual, Correcto, PuestoFinal;
+int NPregunta, PuntajeObtenido, PuntajeaObtener;
+uint8_t Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
 
 const unsigned char PROGMEM LogoUMNG[] = {  //logo de UMNG
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -103,9 +103,9 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
   return var2;
 }
 
-void EnvioReceptor(int var1, int var2) {  // Envio de mensajes por Transceptor (lado Receptor)
+void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
 
-  radio.openWritingPipe(Pipes[var2]);  // Asigna pipe de escritura por defecto
+  radio.openWritingPipe(Pipes[Usuario]);  // Asigna pipe de escritura por defecto
   radio.stopListening();               // Transceptor modo para transmitir
 
   switch (var1) {
@@ -122,7 +122,7 @@ void EnvioReceptor(int var1, int var2) {  // Envio de mensajes por Transceptor (
       break;
     case 1:                       // Iniciar nueva pregunta
       Dato[0] = 0b00000001;       // Identificador
-      Dato[1] = Npregunta;        // Usuario a enviar
+      Dato[1] = NPregunta;        // Usuario a enviar
       Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
       Dato[3] = PuntajeaObtener;  // Envia el puntaje que podria obtener con la pregunta
       radio.write(&Dato, 4);      // Envia los primeros 4 bytes del vector Data
@@ -151,7 +151,7 @@ void EnvioReceptor(int var1, int var2) {  // Envio de mensajes por Transceptor (
   radio.startListening();  // Transceptor modo para recibir
 }
 
-void EnvioSerial(int var1, int var2) {  // Envio de mensajes por comunicacion serial (lado receptor)
+void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado receptor)
   switch (var1) {
     case 0:                   // Solicitar lista de usuarios conectados
       Dato[0] = 0b00000000;   // Identificador
@@ -159,18 +159,18 @@ void EnvioSerial(int var1, int var2) {  // Envio de mensajes por comunicacion se
       break;
     case 1:                   // Envia usuario conectado
       Dato[0] = 0b00000001;   // Identificador
-      Dato[1] = var2;         // Usuario
+      Dato[1] = Usuario;         // Usuario
       Serial.write(Dato, 2);  // Envia los primeros 2 bytes del vector Data
       break;
     case 2:                         // Envia nivel de bateria
       Dato[0] = 0b00000010;         // Identificador
-      Dato[1] = var2;               // Usuario
+      Dato[1] = Usuario;               // Usuario
       Dato[2] = PorcentajeBateria;  // Bateria
       Serial.write(Dato, 3);        // Envia los primeros 3 bytes del vector Data
       break;
     case 3:                   // Envia pulso de boton
       Dato[0] = 0b00000011;   // Identificador
-      Dato[1] = var2;         // Usuario
+      Dato[1] = Usuario;         // Usuario
       Serial.write(Dato, 2);  // Envia los primeros 2 bytes del vector Data
       break;
   }
@@ -208,7 +208,7 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
 
 bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
   for (int Usuario = 0; Usuario < 6; Usuario++) {
-    if (radio.available(&Usuario)) {    // Captura si hay un mensaje disponible y de que pipe proviene
+    if (radio.available(Usuario)) {    // Captura si hay un mensaje disponible y de que pipe proviene
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
       switch (Dato[0]) {
         case 0:  // Recibe solicitud para asignacion de usuario
@@ -345,20 +345,20 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setCursor(73, 17);
       pantallita.print("Pregunta");
       pantallita.setCursor(76, 41);
-      pantallita.print("Puntaje");
+      pantallita.print("PuntajeObtenido");
       pantallita.setTextSize(4);
       pantallita.setCursor(22, 32);
       pantallita.print(Usuario);
       pantallita.setTextSize(2);
       pantallita.setCursor(94, 25);
-      pantallita.print(Pregunta);
+      pantallita.print(NPregunta);
       pantallita.setCursor(74, 49);
-      pantallita.print(Puntaje);
+      pantallita.print(PuntajeObtenido);
       pantallita.display();
       interrupts();
       break;
     case 6:                                // Pantalla TurnoAsignado del jugador y TurnoActual actual
-      if (TurnoAsignado == TurnoActual) {  // Si la TurnoAsignado del jugador es la misma que el TurnoActual actual
+      if (Posicion == Turno) {  // Si la TurnoAsignado del jugador es la misma que el TurnoActual actual
         pantallita.clearDisplay();
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
@@ -405,9 +405,9 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.print(Usuario);
         pantallita.setTextSize(2);
         pantallita.setCursor(94, 25);
-        pantallita.print(TurnoAsignado);
+        pantallita.print(Posicion);
         pantallita.setCursor(74, 49);
-        pantallita.print(TurnoActual);
+        pantallita.print(Turno);
         pantallita.display();
       }
       break;
@@ -451,7 +451,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
       pantallita.print("Puntuacion: ");
-      pantallita.print(Puntaje);
+      pantallita.print(PuntajeObtenido);
       pantallita.setTextColor(WHITE);
       pantallita.setTextSize(2);
       pantallita.setCursor(28, 17);
@@ -577,9 +577,7 @@ void loop() {
 
   } else {
     radio.startListening();
-    Usuario = 5;
     while (true) {
-      Serial.write(0b10000000);  ////////
       RecepcionSerial();
       RecepcionReceptor();
     }
