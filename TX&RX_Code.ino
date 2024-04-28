@@ -203,9 +203,8 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
 }
 
 void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantalla OLED
-  float t_ini;
-  switch (var1) {  // Casos para las pantallas
-    case 0:        // Pantalla de inicio para el Transmisor
+  switch (var1) {           // Casos para las pantallas
+    case 0:                 // Pantalla de inicio para el Transmisor
       pantallita.clearDisplay();
       pantallita.fillRect(0, 16, 128, 48, WHITE);  // Crea un rectangulo y lo rellena con blanco
       pantallita.setTextColor(BLACK);              // Ajusta el color de texto a negro
@@ -248,8 +247,6 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       break;
     case 4:  // Pantalla espera antes de iniciar el primer juego
       pantallita.clearDisplay();
-      MedirBateria();
-      Pantallas(10);
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
@@ -271,8 +268,6 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.fillCircle(64, 40, i * 3, BLACK);
         pantallita.setCursor(0, 4);
         pantallita.print("Iniciando juego.");
-        MedirBateria();
-        Pantallas(10);
       }
       pantallita.clearDisplay();
       pantallita.setTextSize(1);
@@ -297,16 +292,12 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.print(Pregunta);
       pantallita.setCursor(74, 49);
       pantallita.print(Puntaje);
-      MedirBateria();
-      Pantallas(10);
       pantallita.display();
       interrupts();
       break;
     case 6:                                // Pantalla TurnoAsignado del jugador y TurnoActual actual
       if (TurnoAsignado == TurnoActual) {  // Si la TurnoAsignado del jugador es la misma que el TurnoActual actual
         pantallita.clearDisplay();
-        MedirBateria();
-        Pantallas(10);
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
         pantallita.setCursor(0, 4);
@@ -355,15 +346,11 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.print(TurnoAsignado);
         pantallita.setCursor(74, 49);
         pantallita.print(TurnoActual);
-        MedirBateria();
-        Pantallas(10);
         pantallita.display();
       }
       break;
     case 7:  // Pantalla si el usuario acerto o no la pregunta
       pantallita.clearDisplay();
-      MedirBateria();
-      Pantallas(10);
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
@@ -398,8 +385,6 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       break;
     case 8:  // Pantalla clasificacion de puestos finales
       pantallita.clearDisplay();
-      MedirBateria();
-      Pantallas(10);
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
@@ -416,8 +401,6 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       break;
     case 9:  // Pantalla reconectando si pierde la señal
       pantallita.clearDisplay();
-      MedirBateria();
-      Pantallas(10);
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
@@ -484,9 +467,9 @@ void setup() {
   noTone(buzzerPin);  // Detenemos el sonido del buzzer
 
   delay(1000);
-  if (Serial.read() == 0) {                        // Si recibe un byte de 0 en la comunicacion serial...
+  if (Serial.available()) {                        // Si recibe un byte de 0 en la comunicacion serial...
     Modo = 1;                                      // Se configura en modo de recepcion
-    Pantallas(3); // Pantalla de inicio para el Receptor
+    Pantallas(3);                                  // Pantalla Receptor
     while (Serial.available()) { Serial.read(); }  // Vaciar el puerto serial
     EnvioSerial(0);                                // Solicita lista de usuarios en el servidor
     while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
@@ -498,7 +481,7 @@ void setup() {
     }
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
-    Pantallas(0); // Pantalla de inicio para el Transmisor
+    Pantallas(0);                                                      // Pantalla Transmisor
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
   }
@@ -510,7 +493,6 @@ void loop() {
   if (Modo == 0) {  // Modo de transmision
     int t_ini = millis();
     Presiono = 0;
-    Pantallas(0);              // Pantalla Transmisor
     while (!Conectado) {       // Ciclo cuando no esta conectado
       MedirBateria();          // Solicita medir nivel de bateria
       Pantallas(10);           // Actualizar porcentaje de bateria
@@ -523,11 +505,11 @@ void loop() {
           t_ini = millis();
         }
       }
-      Presiono == 0;
+      Presiono = 0;
       EnvioTransmisor(0);                 // Solicitar asignacion de usuario
+      delay(100);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
     }
-    Pantallas(4);
     radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
     radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
