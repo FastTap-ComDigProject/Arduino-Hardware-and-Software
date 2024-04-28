@@ -106,7 +106,7 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
 void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
 
   radio.openWritingPipe(Pipes[Usuario]);  // Asigna pipe de escritura por defecto
-  radio.stopListening();               // Transceptor modo para transmitir
+  radio.stopListening();                  // Transceptor modo para transmitir
 
   switch (var1) {
     case 0:  // Envio asignacion de usuario
@@ -122,7 +122,7 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
       break;
     case 1:                       // Iniciar nueva pregunta
       Dato[0] = 0b00000001;       // Identificador
-      Dato[1] = NPregunta;        // Usuario a enviar
+      Dato[1] = NPregunta;        // Numero de pregunta
       Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
       Dato[3] = PuntajeaObtener;  // Envia el puntaje que podria obtener con la pregunta
       radio.write(&Dato, 4);      // Envia los primeros 4 bytes del vector Data
@@ -139,7 +139,7 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
       break;
     case 4:                       // Puesto final
       Dato[0] = 0b00000100;       // Identificador
-      Dato[1] = PuestoFinal;      // Usuario a enviar
+      Dato[1] = PuestoFinal;      // Envia el puesto final de jugador
       Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
       radio.write(&Dato, 3);      // Envia los primeros 3 bytes del vector Data
       break;
@@ -159,18 +159,18 @@ void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado
       break;
     case 1:                   // Envia usuario conectado
       Dato[0] = 0b00000001;   // Identificador
-      Dato[1] = Usuario;         // Usuario
+      Dato[1] = Usuario;      // Usuario
       Serial.write(Dato, 2);  // Envia los primeros 2 bytes del vector Data
       break;
     case 2:                         // Envia nivel de bateria
       Dato[0] = 0b00000010;         // Identificador
-      Dato[1] = Usuario;               // Usuario
+      Dato[1] = Usuario;            // Usuario
       Dato[2] = PorcentajeBateria;  // Bateria
       Serial.write(Dato, 3);        // Envia los primeros 3 bytes del vector Data
       break;
     case 3:                   // Envia pulso de boton
       Dato[0] = 0b00000011;   // Identificador
-      Dato[1] = Usuario;         // Usuario
+      Dato[1] = Usuario;      // Usuario
       Serial.write(Dato, 2);  // Envia los primeros 2 bytes del vector Data
       break;
   }
@@ -183,21 +183,29 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
     switch (Dato[0]) {
       case 0:  // Recibe usuario asignado
         Usuario = Dato[1];
+        Pantallas(4);  // Pantalla espera antes de iniciar el primer juego
         break;
-      case 1:  // Inicia nueva pregunta
-
+      case 1:                       // Inicia nueva pregunta
+        NPregunta = Dato[1];        // Guarda numero de pregunta
+        PuntajeObtenido = Dato[2];  // Guarda el puntaje actual de jugador
+        PuntajeObtenido = Dato[3];  // Guarda el puntaje que podria obtener con la pregunta
+        Pantallas(5);               // Pantalla para iniciar nuevo juego y juego en curso
         break;
-      case 2:  // Recibe posicion
-
+      case 2:                // Recibe posicion
+        Posicion = Dato[1];  // Guarda la posicion del jugador que presiono el boton
         break;
-      case 3:  // Recibe turno
-
+      case 3:             // Recibe turno
+        Turno = Dato[1];  // Guarda el turno del jugador que debe contestar
+        Pantallas(6);     // Pantalla Posicion del jugador y Turno actual
         break;
-      case 4:  // Recibe puesto final
-
+      case 4:                       // Recibe puesto final
+        PuestoFinal = Dato[1];      // Guarda el puesto final de jugador
+        PuntajeObtenido = Dato[2];  // Guarda el puntaje actual de jugador
+        Pantallas(8);               // Pantalla clasificacion de puestos finales
         break;
       case 5:  // Recibe indicador de que contesto correctamente
-
+        Correcto = 1;
+        Pantallas(7);  // Pantalla si el usuario acerto o no la pregunta
         break;
     }
     return 1;  // Si recibe un mensaje devuelve 1
@@ -208,7 +216,7 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
 
 bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
   for (int Usuario = 0; Usuario < 6; Usuario++) {
-    if (radio.available(Usuario)) {    // Captura si hay un mensaje disponible y de que pipe proviene
+    if (radio.available(Usuario)) {     // Captura si hay un mensaje disponible y de que pipe proviene
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
       switch (Dato[0]) {
         case 0:  // Recibe solicitud para asignacion de usuario
@@ -225,6 +233,7 @@ bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
     }
   }
 }
+
 bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado receptor)
   if (Serial.available()) {
     switch (Serial.read()) {
@@ -357,8 +366,8 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.display();
       interrupts();
       break;
-    case 6:                                // Pantalla TurnoAsignado del jugador y TurnoActual actual
-      if (Posicion == Turno) {  // Si la TurnoAsignado del jugador es la misma que el TurnoActual actual
+    case 6:                     // Pantalla Posicion del jugador y Turno actual
+      if (Posicion == Turno) {  // Si Posicion del jugador es la misma que el Turno actual
         pantallita.clearDisplay();
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
@@ -384,7 +393,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
           pantallita.display();
           delay(500);
         }
-      } else {  // Si la TurnoAsignado del jugador no es la misma que el TurnoActual actual
+      } else {  // Si la Posicion del jugador no es la misma que el Turno actual
         pantallita.clearDisplay();
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
@@ -416,8 +425,8 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      if (Correcto) {                  // Si el usuario es acerto la pregunta
-        pantallita.print("+100 pts");  // Puntos ganados
+      if (Correcto) {                       // Si el usuario es acerto la pregunta
+        pantallita.print(PuntajeaObtener);  // Puntos ganados
         pantallita.setTextSize(3);
         pantallita.setTextWrap(0);
         for (int i = 0; i < 5; i++) {
@@ -572,6 +581,7 @@ void loop() {
       delay(100);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
     }
+
     radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
     radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
