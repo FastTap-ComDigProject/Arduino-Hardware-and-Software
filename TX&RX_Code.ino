@@ -21,7 +21,7 @@
 
 RF24 radio(9, 10);  // CE, CSN
 const uint8_t Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
-bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Modo, Presiono, Conectado;
+bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Presiono[5] = { 0, 0, 0, 0, 0 }, Modo, Presiono, Conectado;
 
 int Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
 int NPregunta, PuntajeObtenido, PuntajeaObtener;
@@ -85,11 +85,13 @@ void EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
   bool var2;
   switch (var1) {
     case 0:                          // Solicitar asignacion de usuario
+      pantallita.clearDisplay();
       Dato[0] = 0b00000000;          // Identificador
       radio.flush_rx();              // Limpia el buffer de recepcion para eliminar capturas antiguas
       var2 = radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
     case 1:                          // Enviar pulso de boton
+      pantallita.clearDisplay();
       Dato[0] = 0b00000001;          // Identificador
       var2 = radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
@@ -121,6 +123,11 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
       }
       break;
     case 1:                       // Iniciar nueva pregunta
+      Presiono[0] = 0;
+      Presiono[1] = 0;
+      Presiono[2] = 0;
+      Presiono[3] = 0;
+      Presiono[4] = 0;
       Dato[0] = 0b00000001;       // Identificador
       Dato[1] = NPregunta;        // Numero de pregunta
       Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
@@ -193,6 +200,7 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
         break;
       case 2:                // Recibe posicion
         Posicion = Dato[1];  // Guarda la posicion del jugador que presiono el boton
+        Pantallas(6);     // Pantalla Posicion del jugador y Turno actual
         break;
       case 3:             // Recibe turno
         Turno = Dato[1];  // Guarda el turno del jugador que debe contestar
@@ -252,36 +260,40 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         Usuario = Serial.read();
         PuntajeObtenido = Serial.read();
-
+        EnvioReceptor(1); // Iniciar nueva pregunta
         break;
       case 2:                                 // Recibe indicacion para iniciar nueva pregunta
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         NPregunta = Serial.read();
         PuntajeaObtener = Serial.read();
-
         break;
       case 3:                                 // Recibe posicion del jugador
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         Usuario = Serial.read();
+        Presionaron[Usuario];
         Posicion = Serial.read();
-
+        EnvioReceptor(2); // Envio posicion
         break;
       case 4:                                 // Recibe turno del jugador que debe contestar
         while (!(Serial.available() > 1)) {}  // Espera a recibir 1 byte
         Turno = Serial.read();
-
+        for (int Usuario = 0; Usuario < 6; Usuario++) {
+          if (Presiono[Usuario]) {
+            EnvioReceptor(3); // Envio turno
+          }
+        }
         break;
       case 5:                                 // Recibe indicacion de que el jugador contesto correctamente
         while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
         Usuario = Serial.read();
-
+        EnvioReceptor(5); // Contesto correctamente
         break;
       case 6:                                 // Recibe puesto final del jugador
         while (!(Serial.available() > 2)) {}  // Espera a recibir 3 bytes
         Usuario = Serial.read();
         PuestoFinal = Serial.read();
         PuntajeObtenido = Serial.read();
-
+        EnvioReceptor(4); // Puesto final
         break;
     }
     return 1;  // Si recibe un mensaje devuelve 1
@@ -571,7 +583,6 @@ void setup() {
     Pantallas(3);                                                      // Pantalla Receptor
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
-    Pantallas(0);                                                      // Pantalla Transmisor
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
   }
@@ -584,6 +595,7 @@ void loop() {
     Presiono = 0;
 
     while (!Conectado) {       // Ciclo cuando no esta conectado
+      Pantallas(0);            // Pantalla Transmisor
       MedirBateria();          // Solicita medir nivel de bateria
       Pantallas(10);           // Actualizar porcentaje de bateria
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
