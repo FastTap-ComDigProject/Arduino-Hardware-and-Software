@@ -222,6 +222,7 @@ bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
         case 0:  // Recibe solicitud para asignacion de usuario
           EnvioSerial(1);
           EnvioReceptor(0);
+          Pantallas(3);  // Pantalla Receptor
           break;
         case 1:  // Recibe pulso de boton
           EnvioSerial(3);
@@ -237,32 +238,49 @@ bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
 bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado receptor)
   if (Serial.available()) {
     switch (Serial.read()) {
-      case 0:                                  // Recibe lista de usuarios conectados
-        while (!(Serial.available() >= 1)) {}  // Espera a recibir 1 byte
-        uint8_t var1 = Serial.read();
+      case 0:                                 // Recibe lista de usuarios conectados
+        while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
+        Dato[0] = Serial.read();
         for (int i = 0; i < 6; i++) {
-          if (bitRead(var1, i)) {
+          if (bitRead(Dato[0], i)) {
             PipeOcupada[i] = 1;  // Guarda cuales pipes estan ocupadas
             Nconectados++;       // Contador de usuarios conectados
           }
         }
         break;
-      case 1:  // Recibe puntaje jugador
+      case 1:                                 // Recibe puntaje jugador
+        while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
+        Usuario = Serial.read();
+        PuntajeObtenido = Serial.read();
 
         break;
-      case 2:  // Recibe indicacion para iniciar nueva pregunta
+      case 2:                                 // Recibe indicacion para iniciar nueva pregunta
+        while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
+        NPregunta = Serial.read();
+        PuntajeaObtener = Serial.read();
 
         break;
-      case 3:  // Recibe posicion del jugador
+      case 3:                                 // Recibe posicion del jugador
+        while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
+        Usuario = Serial.read();
+        Posicion = Serial.read();
 
         break;
-      case 4:  // Recibe turno del jugador que debe contestar
+      case 4:                                 // Recibe turno del jugador que debe contestar
+        while (!(Serial.available() > 1)) {}  // Espera a recibir 1 byte
+        Turno = Serial.read();
 
         break;
-      case 5:  // Recibe indicacion de que el jugador contesto correctamente
+      case 5:                                 // Recibe indicacion de que el jugador contesto correctamente
+        while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
+        Usuario = Serial.read();
 
         break;
-      case 6:  // Recibe puesto final del jugador
+      case 6:                                 // Recibe puesto final del jugador
+        while (!(Serial.available() > 2)) {}  // Espera a recibir 3 bytes
+        Usuario = Serial.read();
+        PuestoFinal = Serial.read();
+        PuntajeObtenido = Serial.read();
 
         break;
     }
@@ -564,16 +582,17 @@ void loop() {
   if (Modo == 0) {  // Modo de transmision
     int t_ini = millis();
     Presiono = 0;
+
     while (!Conectado) {       // Ciclo cuando no esta conectado
       MedirBateria();          // Solicita medir nivel de bateria
       Pantallas(10);           // Actualizar porcentaje de bateria
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
-        if ((millis() - t_ini) < 500) {
+        if ((millis() - (millis() - t_ini)) < 500) {
           Pantallas(1);  // Actualizacion poner "Presiona para conectar"
-        } else if ((millis() - t_ini) < 1000) {
+        } else if ((millis() - (millis() - t_ini)) < 1000) {
           Pantallas(2);  // Actualizacion quitar "Presiona para conectar"
         } else {
-          t_ini = millis();
+          t_ini = millis() - t_ini;
         }
       }
       Presiono = 0;
@@ -585,8 +604,20 @@ void loop() {
     radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
     radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
 
+    t_ini = millis() - t_ini;
+    while (true) {
+      if ((millis() - (millis() - t_ini)) > Tbateria) {
+        MedirBateria();      // Mide nivel de bateria
+        EnvioTransmisor(2);  // Enviar nivel de bateria
+        Pantallas(10);       // Actualizar porcentaje de bateria
+        t_ini = millis() - t_ini;
+      }
+      RecepcionTransmisor();
+    }
+
   } else {
     radio.startListening();
+
     while (true) {
       RecepcionSerial();
       RecepcionReceptor();
