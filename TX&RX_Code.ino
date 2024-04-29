@@ -112,20 +112,20 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
 
   switch (var1) {
     case 0:  // Envio asignacion de usuario
-      for (int i = 0; i < 6; i++) {
-        if (PipeOcupada[i] == 0) {             // Recorre todo el vector en busca de una pipe disponible
+      for (Usuario = 0; Usuario < 6; Usuario++) {
+        if (PipeOcupada[Usuario] == 0) {             // Recorre todo el vector en busca de una pipe disponible
           Dato[0] = 0b00000000;                // Identificador
-          Dato[1] = i;                         // Usuario a enviar
+          Dato[1] = Usuario;                         // Usuario a enviar
           radio.write(&Dato, 2);               // Envia los primeros 2 bytes del vector Data
-          PipeOcupada[i] = 1;                  // Pone la pine como ocupada
-          radio.openReadingPipe(i, Pipes[i]);  // Asigna pipe de lectura para el nuevo usuario
+          PipeOcupada[Usuario] = 1;                  // Pone la pine como ocupada
+          radio.openReadingPipe(Usuario, Pipes[Usuario]);  // Asigna pipe de lectura para el nuevo usuario
         }
       }
       break;
     case 1:                       // Iniciar nueva pregunta
       Presiono[0] = 0;
       Presiono[1] = 0;
-      Presiono[2] = 0;
+      Presiono[2] = 0; // Limpia los usuarios que presionaron el boton
       Presiono[3] = 0;
       Presiono[4] = 0;
       Dato[0] = 0b00000001;       // Identificador
@@ -228,15 +228,15 @@ bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
       switch (Dato[0]) {
         case 0:  // Recibe solicitud para asignacion de usuario
-          EnvioSerial(1);
-          EnvioReceptor(0);
+          EnvioReceptor(0); // Envio asignacion de usuario
+          EnvioSerial(1); // Envia usuario conectado
           Pantallas(3);  // Pantalla Receptor
           break;
         case 1:  // Recibe pulso de boton
-          EnvioSerial(3);
+          EnvioSerial(3);  // Envia pulso de boton
           break;
         case 2:  // Recibe nivel de bateria
-          EnvioSerial(2);
+          EnvioSerial(2); // Envia nivel de bateria
           break;
       }
     }
@@ -270,8 +270,8 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
       case 3:                                 // Recibe posicion del jugador
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         Usuario = Serial.read();
-        Presionaron[Usuario];
         Posicion = Serial.read();
+        Presionaron[Usuario]; // Guarda los usuarios que presionaron el boton
         EnvioReceptor(2); // Envio posicion
         break;
       case 4:                                 // Recibe turno del jugador que debe contestar
@@ -620,11 +620,15 @@ void loop() {
     while (true) {
       if ((millis() - (millis() - t_ini)) > Tbateria) {
         MedirBateria();      // Mide nivel de bateria
-        EnvioTransmisor(2);  // Enviar nivel de bateria
+        Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria
         Pantallas(10);       // Actualizar porcentaje de bateria
         t_ini = millis() - t_ini;
       }
       RecepcionTransmisor();
+      while (!Conectado) {
+        Pantallas(9);       // Pantalla reconectando si pierde la señal
+        Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria hasta recibir ACK
+      }
     }
 
   } else {
