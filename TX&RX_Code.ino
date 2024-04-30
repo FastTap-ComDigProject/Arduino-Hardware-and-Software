@@ -115,13 +115,13 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
 
   switch (var1) {
     case 0:  // Envio asignacion de usuario
-      for (Usuario = 0; Usuario < 6; Usuario++) {
-        if (PipeOcupada[Usuario] == 0) {                   // Recorre todo el vector en busca de una pipe disponible
+      for (Usuario = 0; Usuario < 5; Usuario++) {
+        if (!PipeOcupada[Usuario]) {                   // Recorre todo el vector en busca de una pipe disponible
           Dato[0] = 0b00000000;                            // Identificador
           Dato[1] = Usuario;                               // Usuario a enviar
           radio.write(&Dato, 2);                           // Envia los primeros 2 bytes del vector Data
           PipeOcupada[Usuario] = 1;                        // Pone la pine como ocupada
-          radio.openReadingPipe(Usuario, Pipes[Usuario]);  // Asigna pipe de lectura para el nuevo usuario
+          break;
         }
       }
       break;
@@ -194,6 +194,7 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
       case 0:  // Recibe usuario asignado
         Usuario = Dato[1];
         Pantallas(4);  // Pantalla espera antes de iniciar el primer juego
+        radio.openReadingPipe(Usuario, Pipes[Usuario]);  // Asigna pipe de lectura para el Usuario
         break;
       case 1:                       // Inicia nueva pregunta
         NPregunta = Dato[1];        // Guarda numero de pregunta
@@ -226,13 +227,15 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
 }
 
 bool RecepcionReceptor() {  // Recepcion de mensajes por Transceptor (lado Receptor)
-  for (int Usuario = 0; Usuario < 6; Usuario++) {
+  for (Usuario = 0; Usuario < 6; Usuario++) {
     if (radio.available(Usuario)) {     // Captura si hay un mensaje disponible y de que pipe proviene
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
       switch (Dato[0]) {
         case 0:              // Recibe solicitud para asignacion de usuario
           EnvioReceptor(0);  // Envio asignacion de usuario
-          EnvioSerial(1);    // Envia usuario conectado
+          if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
+            EnvioSerial(1);   // Envia usuario conectado
+          }
           Pantallas(3);      // Pantalla Receptor
           break;
         case 1:            // Recibe pulso de boton
@@ -593,12 +596,20 @@ void setup() {
       }
     }
     Pantallas(3);                                                      // Pantalla Receptor
+    radio.openReadingPipe(0, Pipes[0]);
+    radio.openReadingPipe(1, Pipes[1]);
+    radio.openReadingPipe(2, Pipes[2]);  // Asigna pipe de lectura para los usuarios
+    radio.openReadingPipe(3, Pipes[3]);
+    radio.openReadingPipe(4, Pipes[4]);
+    radio.openReadingPipe(5, Pipes[5]);  // Asigna pipe de lecura por defecto
+    
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
+    radio.openWritingPipe(Pipes[5]);                                   // Asigna pipe de escritura por defecto
+    radio.openReadingPipe(0, Pipes[5]);                                // Asigna pipe de lecura por defecto
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
   }
-  radio.openReadingPipe(5, Pipes[5]);  // Asigna pipe de lecura por defecto
 }
 
 void loop() {
