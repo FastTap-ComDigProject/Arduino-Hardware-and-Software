@@ -539,11 +539,11 @@ void MedirBateria() {  // Mide nivel de bateria
 }
 
 void Pulso() {
-  noInterrupts();
-  if (Presiono) {
+  noInterrupts(); // Desactiva las interrupciones
+  if (Presiono) { // Al soltar el boton
     TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
     Presiono = 0;
-  } else if (!digitalRead(2) && (millis() - TiempoUltimaInterrupcion > 300)) {
+  } else if (!digitalRead(2) && (millis() - TiempoUltimaInterrupcion > 300)) { // Al presionar el boton
     if (Conectado) {
       EnvioTransmisor(1);
     } else {
@@ -552,7 +552,7 @@ void Pulso() {
     TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
     Presiono = 1;
   }
-  interrupts();
+  interrupts(); // Activa las Interrupciones
 }
 
 void setup() {
