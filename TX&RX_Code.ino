@@ -27,6 +27,9 @@ int Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 26
 int NPregunta, PuntajeObtenido, PuntajeaObtener;
 uint8_t Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
 
+volatile unsigned long TiempoUltimaInterrupcion = 0;  // Variable para almacenar el último tiempo de interrupción
+volatile bool Presiono;
+
 const unsigned char PROGMEM LogoUMNG[] = {  //logo de UMNG
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3f, 0xfc, 0x00, 0x00, 0x00,
@@ -184,7 +187,7 @@ void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado
 }
 
 
-bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmisor)
+bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Transmisor)
   if (radio.available()) {
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
     switch (Dato[0]) {
@@ -222,7 +225,7 @@ bool RecepcionTransmisor() {  // Envio de mensajes por Transceptor (lado Transmi
   }
 }
 
-bool RecepcionReceptor() {  // Envio de mensajes por Transceptor (lado Receptor)
+bool RecepcionReceptor() {  // Recepcion de mensajes por Transceptor (lado Receptor)
   for (int Usuario = 0; Usuario < 6; Usuario++) {
     if (radio.available(Usuario)) {     // Captura si hay un mensaje disponible y de que pipe proviene
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
@@ -536,11 +539,20 @@ void MedirBateria() {  // Mide nivel de bateria
 }
 
 void Pulso() {
-  if (Conectado) {
-    EnvioTransmisor(1);
-  } else {
+  noInterrupts();
+  if (Presiono) {
+    TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
+    Presiono = 0;
+  } else if (!digitalRead(2) && (millis() - TiempoUltimaInterrupcion > 300)) {
+    if (Conectado) {
+      EnvioTransmisor(1);
+    } else {
+      Presiono = 1;
+    }
+    TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
     Presiono = 1;
   }
+  interrupts();
 }
 
 void setup() {
@@ -584,7 +596,7 @@ void setup() {
   } else {                                                             // De lo contrario...
     Modo = 0;                                                          // Modo de transmision
     pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
-    attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
+    attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
   }
   radio.openReadingPipe(5, Pipes[5]);  // Asigna pipe de lecura por defecto
 }
