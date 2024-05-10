@@ -10,7 +10,7 @@
 #define ALTITO 64
 #define baudios 115200
 #define botonPin 2
-#define buzzerPin 4
+#define buzzerPin 7
 #define Canal 100
 #define Nintentos 3
 #define Tintentos 500
@@ -21,9 +21,9 @@
 
 RF24 radio(9, 10);  // CE, CSN
 const uint8_t Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
-bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Presiono, Conectado;
+bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
-int Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
+const int PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
 int NPregunta, PuntajeObtenido, PuntajeaObtener;
 uint8_t Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
 
@@ -116,11 +116,11 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
   switch (var1) {
     case 0:  // Envio asignacion de usuario
       for (Usuario = 0; Usuario < 5; Usuario++) {
-        if (!PipeOcupada[Usuario]) {                   // Recorre todo el vector en busca de una pipe disponible
-          Dato[0] = 0b00000000;                            // Identificador
-          Dato[1] = Usuario;                               // Usuario a enviar
-          radio.write(&Dato, 2);                           // Envia los primeros 2 bytes del vector Data
-          PipeOcupada[Usuario] = 1;                        // Pone la pine como ocupada
+        if (!PipeOcupada[Usuario]) {  // Recorre todo el vector en busca de una pipe disponible
+          Dato[0] = 0b00000000;       // Identificador
+          Dato[1] = Usuario;          // Usuario a enviar
+          radio.write(&Dato, 2);      // Envia los primeros 2 bytes del vector Data
+          PipeOcupada[Usuario] = 1;   // Pone la pine como ocupada
           break;
         }
       }
@@ -193,7 +193,7 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
     switch (Dato[0]) {
       case 0:  // Recibe usuario asignado
         Usuario = Dato[1];
-        Pantallas(4);  // Pantalla espera antes de iniciar el primer juego
+        Pantallas(4);                                    // Pantalla espera antes de iniciar el primer juego
         radio.openReadingPipe(Usuario, Pipes[Usuario]);  // Asigna pipe de lectura para el Usuario
         break;
       case 1:                       // Inicia nueva pregunta
@@ -231,12 +231,12 @@ bool RecepcionReceptor() {  // Recepcion de mensajes por Transceptor (lado Recep
     if (radio.available(Usuario)) {     // Captura si hay un mensaje disponible y de que pipe proviene
       radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
       switch (Dato[0]) {
-        case 0:              // Recibe solicitud para asignacion de usuario
-          EnvioReceptor(0);  // Envio asignacion de usuario
+        case 0:               // Recibe solicitud para asignacion de usuario
+          EnvioReceptor(0);   // Envio asignacion de usuario
           if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
             EnvioSerial(1);   // Envia usuario conectado
           }
-          Pantallas(3);      // Pantalla Receptor
+          Pantallas(3);  // Pantalla Receptor
           break;
         case 1:            // Recibe pulso de boton
           EnvioSerial(3);  // Envia pulso de boton
@@ -317,17 +317,17 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(2);                   // Ajusta el tamaño del texto
       pantallita.setCursor(0, 32);
       pantallita.setTextWrap(0);  // Permite que el texto se desborde por la pantalla
-      pantallita.print("TRANSMITTER");
+      pantallita.print(F("TRANSMITTER"));
       pantallita.setTextWrap(1);  // Bloquea que el texto se desborde por la pantalla
       pantallita.setTextSize(1);
       pantallita.setCursor(52, 50);
-      pantallita.print("mode");
+      pantallita.print(F("mode"));
       pantallita.display();
       break;
     case 1:  // Actualizacion poner "Presiona para conectar"
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print("Press 2 Connect");
+      pantallita.print(F("Press 2 Connect"));
       pantallita.display();
       break;
     case 2:                                       // Actualizacion quitar "Presiona para conectar"
@@ -341,14 +341,14 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(2);
       pantallita.setCursor(16, 32);
       pantallita.setTextWrap(0);
-      pantallita.print("RECEIVER");
+      pantallita.print(F("RECEIVER"));
       pantallita.setTextWrap(1);
       pantallita.setTextSize(1);
       pantallita.setCursor(52, 50);
-      pantallita.print("mode");
+      pantallita.print(F("mode"));
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 0);
-      pantallita.print("Connected: ");
+      pantallita.print(F("Connected: "));
       pantallita.print(Nconectados);
       pantallita.display();
       break;
@@ -357,14 +357,14 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print("Esperando inicio...");
+      pantallita.print(F("Esperando inicio..."));
       pantallita.setTextColor(WHITE);
       pantallita.setTextSize(2);
       pantallita.setCursor(28, 17);
-      pantallita.print("Jugador ");
+      pantallita.print(F("Jugador "));
       pantallita.print(Usuario);
       pantallita.setCursor(54, 36);
-      pantallita.print("Conectado :D");
+      pantallita.print(F("Conectado :D"));
       pantallita.display();
       break;
     case 5:  // Pantalla para iniciar nuevo juego y juego en curso
@@ -374,23 +374,23 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       for (int i = 1; i < 32; i++) {  // Animacion iniciando juego
         pantallita.fillCircle(64, 40, i * 3, BLACK);
         pantallita.setCursor(0, 4);
-        pantallita.print("Iniciando juego.");
+        pantallita.print(F("Iniciando juego."));
       }
       pantallita.clearDisplay();
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print("Juego en curso...");
+      pantallita.print(F("Juego en curso..."));
       pantallita.fillRect(0, 16, 128, 48, WHITE);
       pantallita.drawFastVLine(64, 16, 48, BLACK);
       pantallita.drawFastHLine(64, 40, 64, BLACK);
       pantallita.setTextColor(BLACK);
       pantallita.setCursor(11, 19);
-      pantallita.print("Jugador");
+      pantallita.print(F("Jugador"));
       pantallita.setCursor(73, 17);
-      pantallita.print("Pregunta");
+      pantallita.print(F("Pregunta"));
       pantallita.setCursor(76, 41);
-      pantallita.print("PuntajeObtenido");
+      pantallita.print(F("PuntajeObtenido"));
       pantallita.setTextSize(4);
       pantallita.setCursor(22, 32);
       pantallita.print(Usuario);
@@ -408,24 +408,24 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
         pantallita.setCursor(0, 4);
-        pantallita.print("Jugador ");
+        pantallita.print(F("Jugador "));
         pantallita.print(Usuario);
         pantallita.setTextSize(3);
         for (int i = 0; i < 5; i++) {  // Animacion si es el TurnoActual del jugador
           pantallita.fillRect(0, 16, 128, 48, BLACK);
           pantallita.setTextColor(WHITE);
           pantallita.setCursor(49, 18);
-          pantallita.print("TU");
+          pantallita.print(F("TU"));
           pantallita.setCursor(19, 41);
-          pantallita.print("TURNO");
+          pantallita.print(F("TURNO"));
           pantallita.display();
           delay(500);
           pantallita.fillRect(0, 16, 128, 48, WHITE);
           pantallita.setTextColor(BLACK);
           pantallita.setCursor(49, 18);
-          pantallita.print("TU");
+          pantallita.print(F("TU"));
           pantallita.setCursor(19, 41);
-          pantallita.print("TURNO");
+          pantallita.print(F("TURNO"));
           pantallita.display();
           delay(500);
         }
@@ -434,17 +434,17 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
         pantallita.setCursor(0, 4);
-        pantallita.print("Ya respondiste :D");
+        pantallita.print(F("Ya respondiste :D"));
         pantallita.fillRect(0, 16, 128, 48, WHITE);
         pantallita.drawFastVLine(64, 16, 48, BLACK);
         pantallita.drawFastHLine(64, 40, 64, BLACK);
         pantallita.setTextColor(BLACK);
         pantallita.setCursor(11, 19);
-        pantallita.print("Jugador");
+        pantallita.print(F("Jugador"));
         pantallita.setCursor(73, 17);
-        pantallita.print("Posicion");
+        pantallita.print(F("Posicion"));
         pantallita.setCursor(76, 41);
-        pantallita.print("Turno");
+        pantallita.print(F("Turno"));
         pantallita.setTextSize(4);
         pantallita.setCursor(22, 32);
         pantallita.print(Usuario);
@@ -469,24 +469,24 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
           pantallita.fillRect(0, 16, 128, 48, BLACK);
           pantallita.setTextColor(WHITE);
           pantallita.setCursor(3, 29);
-          pantallita.print("GANADOR");
+          pantallita.print(F("GANADOR"));
           pantallita.display();
           delay(500);
           pantallita.fillRect(0, 16, 128, 48, WHITE);
           pantallita.setTextColor(BLACK);
           pantallita.setCursor(3, 29);
-          pantallita.print("GANADOR");
+          pantallita.print(F("GANADOR"));
           pantallita.display();
           delay(500);
         }
         pantallita.setTextWrap(1);
       } else {  // Si el usuario no acerto la pregunta
-        pantallita.print("Estudie +");
+        pantallita.print(F("Estudie +"));
         pantallita.setTextSize(3);
         pantallita.fillRect(0, 16, 128, 48, WHITE);
         pantallita.setTextColor(BLACK);
         pantallita.setCursor(3, 29);
-        pantallita.print("BRUTO");
+        pantallita.print(F("BRUTO"));
         pantallita.display();
       }
       break;
@@ -495,12 +495,12 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print("Puntuacion: ");
+      pantallita.print(F("Puntuacion: "));
       pantallita.print(PuntajeObtenido);
       pantallita.setTextColor(WHITE);
       pantallita.setTextSize(2);
       pantallita.setCursor(28, 17);
-      pantallita.print("Puesto");
+      pantallita.print(F("Puesto"));
       pantallita.setTextSize(4);
       pantallita.setCursor(54, 36);
       pantallita.print(PuestoFinal);
@@ -511,10 +511,10 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print("Desconectado.");
+      pantallita.print(F("Desconectado."));
       pantallita.setTextSize(2);
       pantallita.setCursor(3, 29);
-      pantallita.print("RECONECTANDO");
+      pantallita.print(F("RECONECTANDO"));
       pantallita.display();
       break;
     case 10:  // Actualizar porcentaje de bateria
@@ -542,11 +542,11 @@ void MedirBateria() {  // Mide nivel de bateria
 }
 
 void Pulso() {
-  noInterrupts(); // Desactiva las interrupciones
-  if (Presiono) { // Al soltar el boton
+  noInterrupts();                         // Desactiva las interrupciones
+  if (Presiono) {                         // Al soltar el boton
     TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
     Presiono = 0;
-  } else if (!digitalRead(2) && (millis() - TiempoUltimaInterrupcion > 300)) { // Al presionar el boton
+  } else if (!digitalRead(botonPin) && ((millis() - TiempoUltimaInterrupcion) > 300)) {  // Al presionar el boton
     if (Conectado) {
       EnvioTransmisor(1);
     } else {
@@ -555,7 +555,7 @@ void Pulso() {
     TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
     Presiono = 1;
   }
-  interrupts(); // Activa las Interrupciones
+  interrupts();  // Activa las Interrupciones
 }
 
 void setup() {
@@ -578,7 +578,7 @@ void setup() {
     pantallita.fillCircle(64, 32, i * 1, BLACK);
     pantallita.drawBitmap(32, 0, LogoUMNG, 64, 77, WHITE);  // Animaciones con el logoUMNG
     pantallita.display();
-    tone(buzzerPin, Tonos[i]);  // Suena el buzzer a una frecuencia con multiplos de 150
+    tone(buzzerPin, pgm_read_word_near(&Tonos[i]));  // Suena el buzzer a una frecuencia con multiplos de 150
   }
   noTone(buzzerPin);  // Detenemos el sonido del buzzer
 
@@ -590,31 +590,26 @@ void setup() {
     EnvioSerial(0);                                // Solicita lista de usuarios en el servidor
     while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
     RecepcionSerial();                             // Recibe la lista de usuarios en el servidor
-    for (int i = 0; i < 6; i++) {
-      if (PipeOcupada[i] == 1) {
-        radio.openReadingPipe(i, Pipes[i]);  // Asigna pipes de lecturas para los usuarios conectados
-      }
-    }
-    Pantallas(3);                                                      // Pantalla Receptor
+    Pantallas(3);  // Pantalla Receptor
     radio.openReadingPipe(0, Pipes[0]);
     radio.openReadingPipe(1, Pipes[1]);
     radio.openReadingPipe(2, Pipes[2]);  // Asigna pipe de lectura para los usuarios
     radio.openReadingPipe(3, Pipes[3]);
     radio.openReadingPipe(4, Pipes[4]);
     radio.openReadingPipe(5, Pipes[5]);  // Asigna pipe de lecura por defecto
-    
-  } else {                                                             // De lo contrario...
-    Modo = 0;                                                          // Modo de transmision
-    radio.openWritingPipe(Pipes[5]);                                   // Asigna pipe de escritura por defecto
-    radio.openReadingPipe(0, Pipes[5]);                                // Asigna pipe de lecura por defecto
-    pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
+
+  } else {                                                            // De lo contrario...
+    Modo = 0;                                                         // Modo de transmision
+    radio.openWritingPipe(Pipes[5]);                                  // Asigna pipe de escritura por defecto
+    radio.openReadingPipe(0, Pipes[5]);                               // Asigna pipe de lecura por defecto
+    pinMode(botonPin, INPUT_PULLUP);                                  // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
   }
 }
 
 void loop() {
   if (Modo == 0) {  // Modo de transmision
-    int t_ini = millis();
+    unsigned long t_ini = millis();
     Presiono = 0;
 
     while (!Conectado) {       // Ciclo cuando no esta conectado
@@ -622,12 +617,12 @@ void loop() {
       MedirBateria();          // Solicita medir nivel de bateria
       Pantallas(10);           // Actualizar porcentaje de bateria
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
-        if ((millis() - (millis() - t_ini)) < 500) {
+        if ((millis()-t_ini) < 500) {
           Pantallas(1);  // Actualizacion poner "Presiona para conectar"
-        } else if ((millis() - (millis() - t_ini)) < 1000) {
+        } else if ((millis()-t_ini) < 1000) {
           Pantallas(2);  // Actualizacion quitar "Presiona para conectar"
         } else {
-          t_ini = millis() - t_ini;
+          t_ini = millis();
         }
       }
       Presiono = 0;
