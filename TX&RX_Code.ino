@@ -19,13 +19,13 @@
 #define BateriaMax 5.5
 #define BateriaMin 5
 
-RF24 radio(9, 10);  // CE, CSN
-const uint8_t Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
+RF24 radio(8, 10);  // CE, CSN
+const uint8_t unsigned PROGMEM Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
 bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
-const int PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
-int NPregunta, PuntajeObtenido, PuntajeaObtener;
-uint8_t Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
+const int unsigned PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
+int unsigned NPregunta, PuntajeObtenido, PuntajeaObtener;
+uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
 
 volatile unsigned long TiempoUltimaInterrupcion = 0;  // Variable para almacenar el último tiempo de interrupción
 volatile bool Presiono;
@@ -90,7 +90,6 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
     case 0:  // Solicitar asignacion de usuario
       pantallita.clearDisplay();
       Dato[0] = 0b00000000;          // Identificador
-      radio.flush_rx();              // Limpia el buffer de recepcion para eliminar capturas antiguas
       var2 = radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
       break;
     case 1:  // Enviar pulso de boton
@@ -110,17 +109,16 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
 
 void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Receptor)
 
-  radio.openWritingPipe(Pipes[Usuario]);  // Asigna pipe de escritura por defecto
-  radio.stopListening();                  // Transceptor modo para transmitir
-
   switch (var1) {
-    case 0:  // Envio asignacion de usuario
-      for (Usuario = 0; Usuario < 5; Usuario++) {
-        if (!PipeOcupada[Usuario]) {  // Recorre todo el vector en busca de una pipe disponible
-          Dato[0] = 0b00000000;       // Identificador
-          Dato[1] = Usuario;          // Usuario a enviar
-          radio.write(&Dato, 2);      // Envia los primeros 2 bytes del vector Data
-          PipeOcupada[Usuario] = 1;   // Pone la pine como ocupada
+    case 0:                                                      // Envio asignacion de usuario
+      for (Usuario = 0; Usuario < 5; Usuario++) {                // Ciclo de 0-4
+        if (!PipeOcupada[Usuario]) {                             // Recorre todo el vector en busca de una pipe disponible
+          PipeOcupada[Usuario] = 1;                              // Pone la pine como ocupada
+          Dato[0] = 0b00000000;                                  // Identificador
+          Dato[1] = Usuario;                                     // Usuario a enviar
+          radio.openWritingPipe(pgm_read_word_near(&Pipes[5]));  // Asigna pipe de escritura
+          radio.stopListening();                                 // Transceptor modo para transmitir
+          radio.write(&Dato, 2);                                 // Envia los primeros 2 bytes del vector Data
           break;
         }
       }
@@ -131,35 +129,46 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
       UsuariosPresionaron[2] = 0;  // Limpia los usuarios que presionaron el boton
       UsuariosPresionaron[3] = 0;
       UsuariosPresionaron[4] = 0;
-      Dato[0] = 0b00000001;       // Identificador
-      Dato[1] = NPregunta;        // Numero de pregunta
-      Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
-      Dato[3] = PuntajeaObtener;  // Envia el puntaje que podria obtener con la pregunta
-      radio.write(&Dato, 4);      // Envia los primeros 4 bytes del vector Data
+      Dato[0] = 0b00000001;                                        // Identificador
+      Dato[1] = NPregunta;                                         // Numero de pregunta
+      Dato[2] = PuntajeObtenido;                                   // Envia el puntaje actual de jugador
+      Dato[3] = PuntajeaObtener;                                   // Envia el puntaje que podria obtener con la pregunta
+      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+      radio.stopListening();                                       // Transceptor modo para transmitir
+      radio.write(&Dato, 4);                                       // Envia los primeros 4 bytes del vector Data
       break;
-    case 2:                   // Envio posicion
-      Dato[0] = 0b00000010;   // Identificador
-      Dato[1] = Posicion;     // Envia la posicion del jugador que presiono el boton
-      radio.write(&Dato, 2);  // Envia los primeros 2 bytes del vector Data
+    case 2:                                                        // Envio posicion
+      Dato[0] = 0b00000010;                                        // Identificador
+      Dato[1] = Posicion;                                          // Envia la posicion del jugador que presiono el boton
+      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+      radio.stopListening();                                       // Transceptor modo para transmitir
+      radio.write(&Dato, 2);                                       // Envia los primeros 2 bytes del vector Data
       break;
-    case 3:                   // Envio turno
-      Dato[0] = 0b00000011;   // Identificador
-      Dato[1] = Turno;        // Envia el turno del jugador que debe contestar
-      radio.write(&Dato, 2);  // Envia los primeros 2 bytes del vector Data
+    case 3:                                                        // Envio turno
+      Dato[0] = 0b00000011;                                        // Identificador
+      Dato[1] = Turno;                                             // Envia el turno del jugador que debe contestar
+      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+      radio.stopListening();                                       // Transceptor modo para transmitir
+      radio.write(&Dato, 2);                                       // Envia los primeros 2 bytes del vector Data
       break;
-    case 4:                       // Puesto final
-      Dato[0] = 0b00000100;       // Identificador
-      Dato[1] = PuestoFinal;      // Envia el puesto final de jugador
-      Dato[2] = PuntajeObtenido;  // Envia el puntaje actual de jugador
-      radio.write(&Dato, 3);      // Envia los primeros 3 bytes del vector Data
+    case 4:                                                        // Puesto final
+      Dato[0] = 0b00000100;                                        // Identificador
+      Dato[1] = PuestoFinal;                                       // Envia el puesto final de jugador
+      Dato[2] = PuntajeObtenido;                                   // Envia el puntaje actual de jugador
+      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+      radio.stopListening();                                       // Transceptor modo para transmitir
+      radio.write(&Dato, 3);                                       // Envia los primeros 3 bytes del vector Data
       break;
-    case 5:                   // Contesto correctamente
-      Dato[0] = 0b00000101;   // Identificador
-      radio.write(&Dato, 1);  // Envia el primer byte del vector Data
+    case 5:                                                        // Contesto correctamente
+      Dato[0] = 0b00000101;                                        // Identificador
+      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+      radio.stopListening();                                       // Transceptor modo para transmitir
+      radio.write(&Dato, 1);                                       // Envia el primer byte del vector Data
       break;
   }
   radio.startListening();  // Transceptor modo para recibir
 }
+
 
 void EnvioSerial(int var1) {  // Envio de mensajes por comunicacion serial (lado receptor)
   switch (var1) {
@@ -193,8 +202,9 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
     switch (Dato[0]) {
       case 0:  // Recibe usuario asignado
         Usuario = Dato[1];
-        Pantallas(4);                                    // Pantalla espera antes de iniciar el primer juego
-        radio.openReadingPipe(Usuario, Pipes[Usuario]);  // Asigna pipe de lectura para el Usuario
+        Pantallas(4);                                                   // Pantalla espera antes de iniciar el primer juego
+        radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura segun el usuario
+        radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lectura segun el usuario
         break;
       case 1:                       // Inicia nueva pregunta
         NPregunta = Dato[1];        // Guarda numero de pregunta
@@ -235,16 +245,19 @@ bool RecepcionReceptor() {  // Recepcion de mensajes por Transceptor (lado Recep
           EnvioReceptor(0);   // Envio asignacion de usuario
           if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
             EnvioSerial(1);   // Envia usuario conectado
+            Nconectados++;    // Contador de usuarios conectados
           }
           Pantallas(3);  // Pantalla Receptor
           break;
         case 1:            // Recibe pulso de boton
           EnvioSerial(3);  // Envia pulso de boton
           break;
-        case 2:            // Recibe nivel de bateria
-          EnvioSerial(2);  // Envia nivel de bateria
+        case 2:                         // Recibe nivel de bateria
+          PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
+          EnvioSerial(2);               // Envia nivel de bateria
           break;
       }
+      break;
     }
   }
 }
@@ -532,6 +545,16 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.print(PorcentajeBateria);
       pantallita.display();
       break;
+    case 11:  // Pantalla vacia
+      pantallita.clearDisplay();
+      pantallita.setTextSize(1);
+      pantallita.setCursor(0, 0);
+      pantallita.setTextColor(WHITE);
+      for (int i = 0; i < 168; i++) {  // Rellena toda la pantalla
+        pantallita.print(F("/"));
+      }
+      pantallita.display();
+      break;
   }
 }
 
@@ -539,6 +562,9 @@ void MedirBateria() {  // Mide nivel de bateria
   analogReference(INTERNAL);
   // Se divide entre 10 porque se divide el voltaje a la mitad por las 2 resistencias, osea: 5*2=10
   PorcentajeBateria = map(analogRead(BateriaPin), BateriaMin * 1024.0 / 10, BateriaMax * 1024.0 / 10, 0, 100);
+  if (PorcentajeBateria > 100) {
+    PorcentajeBateria = 100;
+  }
 }
 
 void Pulso() {
@@ -564,7 +590,7 @@ void setup() {
   Wire.begin();
 
   radio.setChannel(Canal);          // Canal que trabajara el Transceptor
-  radio.setPALevel(RF24_PA_MAX);    // Potencia de trabajo Maxima 0dbm
+  radio.setPALevel(RF24_PA_MIN);    // Potencia de trabajo Maxima 0dbm
   radio.setDataRate(RF24_250KBPS);  // Velocidad de 250Kbps
 
   pantallita.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Inicia la pantalla con la direccion 3C
@@ -590,18 +616,18 @@ void setup() {
     EnvioSerial(0);                                // Solicita lista de usuarios en el servidor
     while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
     RecepcionSerial();                             // Recibe la lista de usuarios en el servidor
-    Pantallas(3);  // Pantalla Receptor
-    radio.openReadingPipe(0, Pipes[0]);
-    radio.openReadingPipe(1, Pipes[1]);
-    radio.openReadingPipe(2, Pipes[2]);  // Asigna pipe de lectura para los usuarios
-    radio.openReadingPipe(3, Pipes[3]);
-    radio.openReadingPipe(4, Pipes[4]);
-    radio.openReadingPipe(5, Pipes[5]);  // Asigna pipe de lecura por defecto
+    Pantallas(3);                                  // Pantalla Receptor
+    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[0]));
+    radio.openReadingPipe(1, pgm_read_word_near(&Pipes[1]));
+    radio.openReadingPipe(2, pgm_read_word_near(&Pipes[2]));  // Asigna pipe de lectura para los usuarios
+    radio.openReadingPipe(3, pgm_read_word_near(&Pipes[3]));
+    radio.openReadingPipe(4, pgm_read_word_near(&Pipes[4]));
+    radio.openReadingPipe(5, pgm_read_word_near(&Pipes[5]));  // Asigna pipe de lecura por defecto
 
   } else {                                                            // De lo contrario...
     Modo = 0;                                                         // Modo de transmision
-    radio.openWritingPipe(Pipes[5]);                                  // Asigna pipe de escritura por defecto
-    radio.openReadingPipe(0, Pipes[5]);                               // Asigna pipe de lecura por defecto
+    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[5]));          // Asigna pipe de lecura por defecto
+    radio.openWritingPipe(pgm_read_word_near(&Pipes[5]));             // Asigna pipe de escritura por defecto
     pinMode(botonPin, INPUT_PULLUP);                                  // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
   }
@@ -617,30 +643,28 @@ void loop() {
       MedirBateria();          // Solicita medir nivel de bateria
       Pantallas(10);           // Actualizar porcentaje de bateria
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
-        if ((millis()-t_ini) < 500) {
+        if ((millis() - t_ini) < 500) {
           Pantallas(1);  // Actualizacion poner "Presiona para conectar"
-        } else if ((millis()-t_ini) < 1000) {
+        } else if ((millis() - t_ini) < 1000) {
           Pantallas(2);  // Actualizacion quitar "Presiona para conectar"
         } else {
           t_ini = millis();
         }
       }
-      Presiono = 0;
+      Pantallas(11);
       EnvioTransmisor(0);  // Solicitar asignacion de usuario
-      delay(100);
+      delay(1000);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
+      Presiono = 0;
     }
 
-    radio.openWritingPipe(Pipes[Usuario]);     // Asigna pipe de escritura segun el usuario
-    radio.openReadingPipe(0, Pipes[Usuario]);  // Asigna pipe de lectura segun el usuario
-
-    t_ini = millis() - t_ini;
+    t_ini = millis();
     while (true) {
-      if ((millis() - (millis() - t_ini)) > Tbateria) {
+      if ((millis() - t_ini) > Tbateria) {
         MedirBateria();                  // Mide nivel de bateria
         Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria
         Pantallas(10);                   // Actualizar porcentaje de bateria
-        t_ini = millis() - t_ini;
+        t_ini = millis();
       }
       RecepcionTransmisor();
       while (!Conectado) {
