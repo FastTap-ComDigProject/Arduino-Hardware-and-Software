@@ -25,7 +25,7 @@ bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 
 
 const int unsigned PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
 int unsigned NPregunta, PuntajeObtenido, PuntajeaObtener;
-uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal;
+uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal, UltimaPantalla;
 
 volatile unsigned long TiempoUltimaInterrupcion = 0;  // Variable para almacenar el último tiempo de interrupción
 volatile bool Presiono;
@@ -236,28 +236,30 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
   }
 }
 
-bool RecepcionReceptor() {  // Recepcion de mensajes por Transceptor (lado Receptor)
-  for (Usuario = 0; Usuario < 6; Usuario++) {
-    if (radio.available(Usuario)) {     // Captura si hay un mensaje disponible y de que pipe proviene
-      radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
-      switch (Dato[0]) {
-        case 0:               // Recibe solicitud para asignacion de usuario
-          EnvioReceptor(0);   // Envio asignacion de usuario
-          if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
-            EnvioSerial(1);   // Envia usuario conectado
-            Nconectados++;    // Contador de usuarios conectados
-          }
-          Pantallas(3);  // Pantalla Receptor
-          break;
-        case 1:            // Recibe pulso de boton
-          EnvioSerial(3);  // Envia pulso de boton
-          break;
-        case 2:                         // Recibe nivel de bateria
-          PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
-          EnvioSerial(2);               // Envia nivel de bateria
-          break;
-      }
-      break;
+bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (lado Receptor)
+  if (radio.available(&Usuario)) {  // Captura si hay un mensaje disponible y de que pipe proviene
+    Serial.write(Usuario);
+    radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
+    switch (Dato[0]) {
+      case 0:               // Recibe solicitud para asignacion de usuario
+        EnvioReceptor(0);   // Envio asignacion de usuario
+        if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
+          EnvioSerial(1);   // Envia usuario conectado
+          Nconectados++;    // Contador de usuarios conectados
+        }
+        Pantallas(3);  // Pantalla Receptor
+        break;
+      case 1:            // Recibe pulso de boton
+        EnvioSerial(3);  // Envia pulso de boton
+        break;
+      case 2:                         // Recibe nivel de bateria
+        PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
+        EnvioSerial(2);               // Envia nivel de bateria
+        break;
+      default:
+        Serial.write(0b11111111);
+        radio.flush_rx(); // Limpia el buffer de entrada cuando detecta un mensaje corrupto
+        break;
     }
   }
 }
@@ -322,8 +324,13 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
 }
 
 void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantalla OLED
-  switch (var1) {           // Casos para las pantallas
-    case 0:                 // Pantalla de inicio para el Transmisor
+
+  if (var1 != 1 && var1 != 2 && var1 != 10 && var1 != 11) {
+    UltimaPantalla = var1;
+  }
+
+  switch (var1) {  // Casos para las pantallas
+    case 0:        // Pantalla de inicio para el Transmisor
       pantallita.clearDisplay();
       pantallita.fillRect(0, 16, 128, 48, WHITE);  // Crea un rectangulo y lo rellena con blanco
       pantallita.setTextColor(BLACK);              // Ajusta el color de texto a negro
@@ -370,14 +377,15 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print(F("Esperando inicio..."));
+      pantallita.print(F("Conectado :D"));
       pantallita.setTextColor(WHITE);
       pantallita.setTextSize(2);
-      pantallita.setCursor(28, 17);
+      pantallita.setCursor(10, 32);
       pantallita.print(F("Jugador "));
       pantallita.print(Usuario);
-      pantallita.setCursor(54, 36);
-      pantallita.print(F("Conectado :D"));
+      pantallita.setTextSize(1);
+      pantallita.setCursor(7, 50);
+      pantallita.print(F("Esperando inicio..."));
       pantallita.display();
       break;
     case 5:  // Pantalla para iniciar nuevo juego y juego en curso
@@ -524,10 +532,12 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print(F("Desconectado."));
+      pantallita.print(F("Desconectado D:"));
       pantallita.setTextSize(2);
-      pantallita.setCursor(3, 29);
-      pantallita.print(F("RECONECTANDO"));
+      pantallita.setCursor(47, 25);
+      pantallita.print(F("RE-"));
+      pantallita.setCursor(0, 41);
+      pantallita.print(F("CONECTANDO"));
       pantallita.display();
       break;
     case 10:  // Actualizar porcentaje de bateria
@@ -550,8 +560,8 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setCursor(0, 0);
       pantallita.setTextColor(WHITE);
-      for (int i = 0; i < 168; i++) {  // Rellena toda la pantalla
-        pantallita.print(F("/"));
+      for (int i = 0; i < 84; i++) {  // Rellena toda la pantalla
+        pantallita.print(F("<>"));
       }
       pantallita.display();
       break;
@@ -666,10 +676,15 @@ void loop() {
         Pantallas(10);                   // Actualizar porcentaje de bateria
         t_ini = millis();
       }
+
       RecepcionTransmisor();
-      while (!Conectado) {
-        Pantallas(9);                    // Pantalla reconectando si pierde la señal
-        Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria hasta recibir ACK
+
+      if (!Conectado) {
+        while (!Conectado) {
+          Pantallas(9);                    // Pantalla reconectando si pierde la señal
+          Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria hasta recibir ACK
+        }
+        Pantallas(UltimaPantalla);  // Vuelve a la ultima pantalla utilizada
       }
     }
 
