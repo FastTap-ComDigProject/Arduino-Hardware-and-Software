@@ -240,26 +240,33 @@ bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (la
   if (radio.available(&Usuario)) {  // Captura si hay un mensaje disponible y de que pipe proviene
     Serial.write(Usuario);
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
-    switch (Dato[0]) {
-      case 0:               // Recibe solicitud para asignacion de usuario
-        EnvioReceptor(0);   // Envio asignacion de usuario
-        if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
-          EnvioSerial(1);   // Envia usuario conectado
-          Nconectados++;    // Contador de usuarios conectados
-        }
-        Pantallas(3);  // Pantalla Receptor
-        break;
-      case 1:            // Recibe pulso de boton
-        EnvioSerial(3);  // Envia pulso de boton
-        break;
-      case 2:                         // Recibe nivel de bateria
-        PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
-        EnvioSerial(2);               // Envia nivel de bateria
-        break;
-      default:
-        Serial.write(0b11111111);
-        radio.flush_rx(); // Limpia el buffer de entrada cuando detecta un mensaje corrupto
-        break;
+    if (Usuario < 6) {
+      switch (Dato[0]) {
+        case 0:               // Recibe solicitud para asignacion de usuario
+          EnvioReceptor(0);   // Envio asignacion de usuario
+          if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
+            EnvioSerial(1);   // Envia usuario conectado
+            Nconectados++;    // Contador de usuarios conectados
+          }
+          Pantallas(3);  // Pantalla Receptor
+          break;
+        case 1:            // Recibe pulso de boton
+          EnvioSerial(3);  // Envia pulso de boton
+          break;
+        case 2:                         // Recibe nivel de bateria
+          PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
+          EnvioSerial(2);               // Envia nivel de bateria
+          break;
+        default:
+          Serial.write(0b00001111);
+          NRFsetup();
+          Pantallas(UltimaPantalla);
+          break;
+      }
+    } else {
+      Serial.write(0b11110000);
+      NRFsetup();
+      Pantallas(UltimaPantalla);
     }
   }
 }
@@ -325,7 +332,7 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
 
 void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantalla OLED
 
-  if (var1 != 1 && var1 != 2 && var1 != 10 && var1 != 11) {
+  if (var1 != 1 && var1 != 2 && var1 != 9 && var1 != 10 && var1 != 11 && var1 != 12) {
     UltimaPantalla = var1;
   }
 
@@ -565,8 +572,17 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       }
       pantallita.display();
       break;
+    case 12:  //Pantalla de error nrf
+      pantallita.clearDisplay();
+      pantallita.setTextSize(1);
+      pantallita.setCursor(0, 57);
+      pantallita.setTextColor(WHITE);
+      pantallita.print(F("-Error transceptorNRF"));
+      pantallita.display();
+      break;
   }
 }
+
 
 void MedirBateria() {  // Mide nivel de bateria
   analogReference(INTERNAL);
@@ -576,6 +592,40 @@ void MedirBateria() {  // Mide nivel de bateria
     PorcentajeBateria = 100;
   }
 }
+
+
+void DetectorErrorNRF() {
+  if (radio.failureDetected) {
+    Pantallas(12);  //Pantalla de error nrf
+    delay(500);
+    NRFsetup();
+  }
+}
+
+
+void NRFsetup() {
+
+  while (!radio.begin()) {
+    Pantallas(12);  //Pantalla de error nrf
+  }
+
+  radio.setChannel(Canal);                                          // Canal que trabajara el Transceptor
+  radio.setPALevel(RF24_PA_MIN);                                    // Potencia de trabajo Maxima 0dbm
+  radio.setDataRate(RF24_250KBPS);                                  // Velocidad de 250Kbps
+  if (Modo == 0) {                                                  // Modo de transmision
+    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lecura por defecto
+    radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura por defecto
+  } else {                                                          // Modo de recepcion
+    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[0]));
+    radio.openReadingPipe(1, pgm_read_word_near(&Pipes[1]));
+    radio.openReadingPipe(2, pgm_read_word_near(&Pipes[2]));  // Asigna pipe de lectura para los usuarios
+    radio.openReadingPipe(3, pgm_read_word_near(&Pipes[3]));
+    radio.openReadingPipe(4, pgm_read_word_near(&Pipes[4]));
+    radio.openReadingPipe(5, pgm_read_word_near(&Pipes[5]));  // Asigna pipe de lecura por defecto
+  }
+  radio.startListening();
+}
+
 
 void Pulso() {
   noInterrupts();                         // Desactiva las interrupciones
@@ -594,14 +644,10 @@ void Pulso() {
   interrupts();  // Activa las Interrupciones
 }
 
+
 void setup() {
   Serial.begin(baudios);
-  radio.begin();
   Wire.begin();
-
-  radio.setChannel(Canal);          // Canal que trabajara el Transceptor
-  radio.setPALevel(RF24_PA_MIN);    // Potencia de trabajo Maxima 0dbm
-  radio.setDataRate(RF24_250KBPS);  // Velocidad de 250Kbps
 
   pantallita.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // Inicia la pantalla con la direccion 3C
   pantallita.setRotation(0);                     // Se rota la pantalla para que pueda usarse horizontalmente
@@ -627,20 +673,16 @@ void setup() {
     while (!Serial.available()) {}                 // Espera a recibir un mensaje serial
     RecepcionSerial();                             // Recibe la lista de usuarios en el servidor
     Pantallas(3);                                  // Pantalla Receptor
-    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[0]));
-    radio.openReadingPipe(1, pgm_read_word_near(&Pipes[1]));
-    radio.openReadingPipe(2, pgm_read_word_near(&Pipes[2]));  // Asigna pipe de lectura para los usuarios
-    radio.openReadingPipe(3, pgm_read_word_near(&Pipes[3]));
-    radio.openReadingPipe(4, pgm_read_word_near(&Pipes[4]));
-    radio.openReadingPipe(5, pgm_read_word_near(&Pipes[5]));  // Asigna pipe de lecura por defecto
 
-  } else {                                                            // De lo contrario...
+  } else {  // De lo contrario...
+
     Modo = 0;                                                         // Modo de transmision
-    radio.openReadingPipe(0, pgm_read_word_near(&Pipes[5]));          // Asigna pipe de lecura por defecto
-    radio.openWritingPipe(pgm_read_word_near(&Pipes[5]));             // Asigna pipe de escritura por defecto
     pinMode(botonPin, INPUT_PULLUP);                                  // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
+    Usuario = 5;                                                      // Para pipe default
   }
+
+  NRFsetup();
 }
 
 void loop() {
@@ -681,19 +723,21 @@ void loop() {
 
       if (!Conectado) {
         while (!Conectado) {
-          Pantallas(9);                    // Pantalla reconectando si pierde la señal
+          Pantallas(9);  // Pantalla reconectando si pierde la señal
+          delay(200);
           Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria hasta recibir ACK
         }
+        t_ini = millis();
         Pantallas(UltimaPantalla);  // Vuelve a la ultima pantalla utilizada
       }
     }
 
   } else {
-    radio.startListening();
 
     while (true) {
       RecepcionSerial();
       RecepcionReceptor();
+      DetectorErrorNRF();
     }
   }
 }
