@@ -238,7 +238,6 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
 
 bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (lado Receptor)
   if (radio.available(&Usuario)) {  // Captura si hay un mensaje disponible y de que pipe proviene
-    Serial.write(Usuario);
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
     if (Usuario < 6) {
       switch (Dato[0]) {
@@ -258,13 +257,11 @@ bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (la
           EnvioSerial(2);               // Envia nivel de bateria
           break;
         default:
-          Serial.write(0b00001111);
           NRFsetup();
           Pantallas(UltimaPantalla);
           break;
       }
     } else {
-      Serial.write(0b11110000);
       NRFsetup();
       Pantallas(UltimaPantalla);
     }
