@@ -501,8 +501,10 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      if (Correcto) {                       // Si el usuario es acerto la pregunta
+      if (Correcto) {  // Si el usuario es acerto la pregunta
+        pantallita.print(F("Ganaste: "));
         pantallita.print(PuntajeaObtener);  // Puntos ganados
+        pantallita.print(F("pts"));
         pantallita.setTextSize(3);
         pantallita.setTextWrap(0);
         for (int i = 0; i < 5; i++) {
@@ -537,6 +539,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setCursor(0, 4);
       pantallita.print(F("Puntuacion: "));
       pantallita.print(PuntajeObtenido);
+      pantallita.print(F("pts"));
       pantallita.setTextColor(WHITE);
       pantallita.setTextSize(2);
       pantallita.setCursor(28, 17);
