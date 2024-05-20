@@ -14,21 +14,21 @@
 #define Canal 100
 #define Nintentos 3
 #define Tintentos 500
-#define Tbateria 5000
+#define Tbateria 10000
 #define BateriaPin A0
-#define BateriaMax 5.5
-#define BateriaMin 5
+#define BateriaMax 5
+#define BateriaMin 2.5
+#define MultiplicadorPuntaje 50
 
 RF24 radio(8, 10);  // CE, CSN
 const uint8_t unsigned PROGMEM Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
 bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
 const int unsigned PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
-int unsigned NPregunta, PuntajeObtenido, PuntajeaObtener;
-uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal, UltimaPantalla;
+int unsigned PuntajeObtenido, PuntajeaObtener;
+uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, NPregunta, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal, UltimaPantalla;
 
-volatile unsigned long TiempoUltimaInterrupcion = 0;  // Variable para almacenar el último tiempo de interrupción
-volatile bool Presiono;
+volatile bool Presiono, BotonActivado = 0;
 
 const unsigned char PROGMEM LogoUMNG[] = {  //logo de UMNG
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -89,13 +89,18 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
   switch (var1) {
     case 0:  // Solicitar asignacion de usuario
       pantallita.clearDisplay();
-      Dato[0] = 0b00000000;          // Identificador
-      var2 = radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
+      Dato[0] = 0b00000000;  // Identificador
+      Dato[1] = 0b00000000;
+      var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
       break;
     case 1:  // Enviar pulso de boton
       pantallita.clearDisplay();
-      Dato[0] = 0b00000001;          // Identificador
-      var2 = radio.write(&Dato, 1);  // Solo enviar el primer byte del vector Data
+      Dato[0] = 0b00000001;  // Identificador
+      Dato[1] = 0b00000000;
+      var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
+      if (!var2) {
+        BotonActivado = 1;
+      }
       break;
     case 2:                          // Enviar nivel de bateria
       Dato[0] = 0b00000010;          // Identificador
@@ -206,11 +211,12 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
         radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura segun el usuario
         radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lectura segun el usuario
         break;
-      case 1:                       // Inicia nueva pregunta
-        NPregunta = Dato[1];        // Guarda numero de pregunta
-        PuntajeObtenido = Dato[2];  // Guarda el puntaje actual de jugador
-        PuntajeObtenido = Dato[3];  // Guarda el puntaje que podria obtener con la pregunta
-        Pantallas(5);               // Pantalla para iniciar nuevo juego y juego en curso
+      case 1:                                              // Inicia nueva pregunta
+        NPregunta = Dato[1];                               // Guarda numero de pregunta
+        PuntajeObtenido = Dato[2] * MultiplicadorPuntaje;  // Guarda el puntaje actual de jugador
+        PuntajeaObtener = Dato[3] * MultiplicadorPuntaje;  // Guarda el puntaje que podria obtener con la pregunta
+        Pantallas(5);                                      // Pantalla para iniciar nuevo juego y juego en curso
+        BotonActivado = 1;
         break;
       case 2:                // Recibe posicion
         Posicion = Dato[1];  // Guarda la posicion del jugador que presiono el boton
@@ -220,10 +226,10 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
         Turno = Dato[1];  // Guarda el turno del jugador que debe contestar
         Pantallas(6);     // Pantalla Posicion del jugador y Turno actual
         break;
-      case 4:                       // Recibe puesto final
-        PuestoFinal = Dato[1];      // Guarda el puesto final de jugador
-        PuntajeObtenido = Dato[2];  // Guarda el puntaje actual de jugador
-        Pantallas(8);               // Pantalla clasificacion de puestos finales
+      case 4:                                              // Recibe puesto final
+        PuestoFinal = Dato[1];                             // Guarda el puesto final de jugador
+        PuntajeObtenido = Dato[2] * MultiplicadorPuntaje;  // Guarda el puntaje actual de jugador
+        Pantallas(8);                                      // Pantalla clasificacion de puestos finales
         break;
       case 5:  // Recibe indicador de que contesto correctamente
         Correcto = 1;
@@ -238,7 +244,7 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
 
 bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (lado Receptor)
   if (radio.available(&Usuario)) {  // Captura si hay un mensaje disponible y de que pipe proviene
-    radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
+    radio.read(&Dato, 2);           // Guardar mensaje
     if (Usuario < 6) {
       switch (Dato[0]) {
         case 0:               // Recibe solicitud para asignacion de usuario
@@ -296,8 +302,8 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         Usuario = Serial.read();
         Posicion = Serial.read();
-        UsuariosPresionaron[Usuario];  // Guarda los usuarios que presionaron el boton
-        EnvioReceptor(2);              // Envio posicion
+        UsuariosPresionaron[Usuario] = 1;  // Guarda los usuarios que presionaron el boton
+        EnvioReceptor(2);                  // Envio posicion
         break;
       case 4:                                 // Recibe turno del jugador que debe contestar
         while (!(Serial.available() > 1)) {}  // Espera a recibir 1 byte
@@ -400,6 +406,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.fillCircle(64, 40, i * 3, BLACK);
         pantallita.setCursor(0, 4);
         pantallita.print(F("Iniciando juego."));
+        pantallita.display();
       }
       pantallita.clearDisplay();
       pantallita.setTextSize(1);
@@ -415,7 +422,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setCursor(73, 17);
       pantallita.print(F("Pregunta"));
       pantallita.setCursor(76, 41);
-      pantallita.print(F("PuntajeObtenido"));
+      pantallita.print(F("Puntaje"));
       pantallita.setTextSize(4);
       pantallita.setCursor(22, 32);
       pantallita.print(Usuario);
@@ -427,9 +434,9 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.display();
       interrupts();
       break;
-    case 6:                     // Pantalla Posicion del jugador y Turno actual
+    case 6:  // Pantalla Posicion del jugador y Turno actual
+      pantallita.clearDisplay();
       if (Posicion == Turno) {  // Si Posicion del jugador es la misma que el Turno actual
-        pantallita.clearDisplay();
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
         pantallita.setCursor(0, 4);
@@ -454,12 +461,20 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
           pantallita.display();
           delay(500);
         }
-      } else {  // Si la Posicion del jugador no es la misma que el Turno actual
-        pantallita.clearDisplay();
+      } else if (Posicion < Turno) {  // Si la Posicion del jugador no es la misma que el Turno actual
+        pantallita.fillRect(0, 16, 128, 48, WHITE);
+        pantallita.setTextColor(BLACK);
+        pantallita.setTextSize(3);
+        pantallita.setCursor(0, 18);
+        pantallita.print(F("Estudia"));
+        pantallita.setCursor(19, 41);
+        pantallita.print(F("BURRO"));
+        pantallita.display();
+      } else {
         pantallita.setTextSize(1);
         pantallita.setTextColor(WHITE);
         pantallita.setCursor(0, 4);
-        pantallita.print(F("Ya respondiste :D"));
+        pantallita.print(F("Esperando :D"));
         pantallita.fillRect(0, 16, 128, 48, WHITE);
         pantallita.drawFastVLine(64, 16, 48, BLACK);
         pantallita.drawFastHLine(64, 40, 64, BLACK);
@@ -582,9 +597,8 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
 
 
 void MedirBateria() {  // Mide nivel de bateria
-  analogReference(INTERNAL);
-  // Se divide entre 10 porque se divide el voltaje a la mitad por las 2 resistencias, osea: 5*2=10
-  PorcentajeBateria = map(analogRead(BateriaPin), BateriaMin * 1024.0 / 10, BateriaMax * 1024.0 / 10, 0, 100);
+  analogReference(DEFAULT);
+  PorcentajeBateria = map(analogRead(BateriaPin) * 5.0 / 1023.0, BateriaMin, BateriaMax, 0, 100);
   if (PorcentajeBateria > 100) {
     PorcentajeBateria = 100;
   }
@@ -625,20 +639,14 @@ void NRFsetup() {
 
 
 void Pulso() {
-  noInterrupts();                         // Desactiva las interrupciones
-  if (Presiono) {                         // Al soltar el boton
-    TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
-    Presiono = 0;
-  } else if (!digitalRead(botonPin) && ((millis() - TiempoUltimaInterrupcion) > 300)) {  // Al presionar el boton
+  if (BotonActivado) {
     if (Conectado) {
       EnvioTransmisor(1);
     } else {
       Presiono = 1;
     }
-    TiempoUltimaInterrupcion = millis();  // Actualiza el último tiempo de interrupción
-    Presiono = 1;
+    BotonActivado = 0;
   }
-  interrupts();  // Activa las Interrupciones
 }
 
 
@@ -687,10 +695,11 @@ void loop() {
     unsigned long t_ini = millis();
     Presiono = 0;
 
-    while (!Conectado) {       // Ciclo cuando no esta conectado
-      Pantallas(0);            // Pantalla Transmisor
-      MedirBateria();          // Solicita medir nivel de bateria
-      Pantallas(10);           // Actualizar porcentaje de bateria
+    while (!Conectado) {  // Ciclo cuando no esta conectado
+      Pantallas(0);       // Pantalla Transmisor
+      MedirBateria();     // Solicita medir nivel de bateria
+      Pantallas(10);      // Actualizar porcentaje de bateria
+      BotonActivado = 1;
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
         if ((millis() - t_ini) < 500) {
           Pantallas(1);  // Actualizacion poner "Presiona para conectar"
@@ -700,7 +709,7 @@ void loop() {
           t_ini = millis();
         }
       }
-      Pantallas(11);
+      Pantallas(11);       // Pantalla vacia
       EnvioTransmisor(0);  // Solicitar asignacion de usuario
       delay(1000);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
