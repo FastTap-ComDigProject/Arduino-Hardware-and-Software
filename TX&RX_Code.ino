@@ -21,6 +21,8 @@
 #define MultiplicadorPuntaje 50
 
 RF24 radio(8, 10);  // CE, CSN
+Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
+
 const uint8_t unsigned PROGMEM Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
 bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
@@ -78,8 +80,6 @@ const unsigned char PROGMEM LogoBateria[] = {  //logo Bateria
   0xd8, 0x00, 0x00, 0x30, 0xf8, 0x00, 0x00, 0x30, 0xf8, 0x00, 0x00, 0x30, 0x18, 0x00, 0x00, 0x30,
   0x18, 0x00, 0x00, 0x30, 0x1c, 0x00, 0x00, 0x70, 0x1f, 0xff, 0xff, 0xf0, 0x0f, 0xff, 0xff, 0xe0
 };
-
-Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 
 
@@ -306,7 +306,7 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         EnvioReceptor(2);                  // Envio posicion
         break;
       case 4:                                 // Recibe turno del jugador que debe contestar
-        while (!(Serial.available() > 1)) {}  // Espera a recibir 1 byte
+        while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
         Turno = Serial.read();
         for (int Usuario = 0; Usuario < 6; Usuario++) {
           if (UsuariosPresionaron[Usuario]) {
