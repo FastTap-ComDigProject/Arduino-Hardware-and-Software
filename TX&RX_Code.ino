@@ -25,7 +25,7 @@ RF24 radio(8, 10);  // CE, CSN
 Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 const uint8_t unsigned PROGMEM Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
-bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, UsuariosPresionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
+bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
 const int unsigned PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
 int unsigned PuntajeObtenido, PuntajeaObtener;
@@ -127,12 +127,7 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
         }
       }
       break;
-    case 1:  // Iniciar nueva pregunta
-      UsuariosPresionaron[0] = 0;
-      UsuariosPresionaron[1] = 0;
-      UsuariosPresionaron[2] = 0;  // Limpia los usuarios que presionaron el boton
-      UsuariosPresionaron[3] = 0;
-      UsuariosPresionaron[4] = 0;
+    case 1:                                                        // Iniciar nueva pregunta
       Dato[0] = 0b00000001;                                        // Identificador
       Dato[1] = NPregunta;                                         // Numero de pregunta
       Dato[2] = PuntajeObtenido;                                   // Envia el puntaje actual de jugador
@@ -148,12 +143,14 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
       radio.stopListening();                                       // Transceptor modo para transmitir
       radio.write(&Dato, 2);                                       // Envia los primeros 2 bytes del vector Data
       break;
-    case 3:                                                        // Envio turno
-      Dato[0] = 0b00000011;                                        // Identificador
-      Dato[1] = Turno;                                             // Envia el turno del jugador que debe contestar
-      radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
-      radio.stopListening();                                       // Transceptor modo para transmitir
-      radio.write(&Dato, 2);                                       // Envia los primeros 2 bytes del vector Data
+    case 3:                   // Envio turno
+      Dato[0] = 0b00000011;   // Identificador
+      Dato[1] = Turno;        // Envia el turno del jugador que debe contestar
+      radio.stopListening();  // Transceptor modo para transmitir
+      for (int Usuario = 0; Usuario < 6; Usuario++) {
+        radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de escritura
+        radio.write(&Dato, 2);                                       // Envia los primeros 2 bytes del vector Data
+      }
       break;
     case 4:                                                        // Puesto final
       Dato[0] = 0b00000100;                                        // Identificador
@@ -309,17 +306,12 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         Usuario = Serial.read();
         Posicion = Serial.read();
-        UsuariosPresionaron[Usuario] = 1;  // Guarda los usuarios que presionaron el boton
-        EnvioReceptor(2);                  // Envio posicion
+        EnvioReceptor(2);  // Envio posicion
         break;
       case 4:                                 // Recibe turno del jugador que debe contestar
         while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
         Turno = Serial.read();
-        for (int Usuario = 0; Usuario < 6; Usuario++) {
-          if (UsuariosPresionaron[Usuario]) {
-            EnvioReceptor(3);  // Envio turno
-          }
-        }
+        EnvioReceptor(3);  // Envio turno
         break;
       case 5:                                 // Recibe indicacion de que el jugador contesto correctamente
         while (!(Serial.available() > 0)) {}  // Espera a recibir 1 byte
