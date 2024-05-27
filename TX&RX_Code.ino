@@ -17,7 +17,7 @@
 #define Tintentos 15  // Multiplicado por 250uS
 #define Tbateria 10000
 #define BateriaPin A0
-#define BateriaMax 5
+#define BateriaMax 4
 #define BateriaMin 2.5
 #define MultiplicadorPuntaje 50
 
@@ -86,25 +86,18 @@ const unsigned char PROGMEM LogoBateria[] = {  //logo Bateria
 
 bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Transmisor)
   radio.stopListening();          // Transceptor modo para transmitir
-  bool var2;
+  bool var2 = 0;
   switch (var1) {
-    case 0:           // Solicitar asignacion de usuario
-      Pantallas(11);  // Pantalla vacia
-      pantallita.clearDisplay();
+    case 0:                  // Solicitar asignacion de usuario
       Dato[0] = 0b00000000;  // Identificador
       Dato[1] = 0b00000000;
       var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
       break;
-    case 1:           // Enviar pulso de boton
-      Pantallas(11);  // Pantalla vacia
-      pantallita.clearDisplay();
+    case 1:                  // Enviar pulso de boton
       Dato[0] = 0b00000001;  // Identificador
       Dato[1] = 0b00000000;
-      var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
-      if (!var2) {
-        BotonActivado = 1;
-        digitalWrite(ledBotonPin, HIGH);  // Enciende el led del boton
-        Pantallas(UltimaPantalla);        // Vuelve a la ultima pantalla utilizada
+      while (!var2) {
+        var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
       }
       break;
     case 2:                          // Enviar nivel de bateria
@@ -211,10 +204,12 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
     radio.read(&Dato, sizeof(Dato));  // Guardar mensaje
     switch (Dato[0]) {
       case 0:  // Recibe usuario asignado
-        Usuario = Dato[1];
-        Pantallas(4);                                                   // Pantalla espera antes de iniciar el primer juego
-        radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura segun el usuario
-        radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lectura segun el usuario
+        if (Usuario == 5) {
+          Usuario = Dato[1];
+          Pantallas(4);                                                   // Pantalla espera antes de iniciar el primer juego
+          radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura segun el usuario
+          radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lectura segun el usuario
+        }
         break;
       case 1:                                              // Inicia nueva pregunta
         NPregunta = Dato[1];                               // Guarda numero de pregunta
@@ -253,11 +248,13 @@ bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (la
     radio.read(&Dato, 2);           // Guardar mensaje
     if (Usuario < 6) {
       switch (Dato[0]) {
-        case 0:               // Recibe solicitud para asignacion de usuario
-          EnvioReceptor(0);   // Envio asignacion de usuario
-          if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
-            EnvioSerial(1);   // Envia usuario conectado
-            Nconectados++;    // Contador de usuarios conectados
+        case 0:  // Recibe solicitud para asignacion de usuario
+          if (Usuario == 5) {
+            EnvioReceptor(0);   // Envio asignacion de usuario
+            if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
+              EnvioSerial(1);   // Envia usuario conectado
+              Nconectados++;    // Contador de usuarios conectados
+            }
           }
           Pantallas(3);  // Pantalla Receptor
           break;
@@ -607,7 +604,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
 
 void MedirBateria() {  // Mide nivel de bateria
   analogReference(DEFAULT);
-  PorcentajeBateria = map(analogRead(BateriaPin) * 5.0 / 1023.0, BateriaMin, BateriaMax, 0, 100);
+  PorcentajeBateria = map(100 * analogRead(BateriaPin) * 5.0 / 1023.0, BateriaMin * 100, BateriaMax * 100, 0, 100);
   if (PorcentajeBateria > 100) {
     PorcentajeBateria = 100;
   }
@@ -650,13 +647,9 @@ void NRFsetup() {
 
 void Pulso() {
   if (BotonActivado) {
-    digitalWrite(ledBotonPin, LOW);  // Apaga led cuandos se presiona el boton
     BotonActivado = 0;
-    if (Conectado) {
-      EnvioTransmisor(1);
-    } else {
-      Presiono = 1;
-    }
+    digitalWrite(ledBotonPin, LOW);  // Apaga led cuandos se presiona el boton
+    Presiono = 1;
   }
 }
 
@@ -692,11 +685,11 @@ void setup() {
 
   } else {  // De lo contrario...
 
-    Modo = 0;                                                         // Modo de transmision
-    pinMode(botonPin, INPUT_PULLUP);                                  // Entrada con resistencia de PULLUP interna
-    attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
-    pinMode(ledBotonPin, OUTPUT);                                     // Configura como salida el led del boton
-    Usuario = 5;                                                      // Para pipe default
+    Modo = 0;                                                          // Modo de transmision
+    pinMode(ledBotonPin, OUTPUT);                                      // Configura como salida el led del boton
+    pinMode(botonPin, INPUT_PULLUP);                                   // Entrada con resistencia de PULLUP interna
+    attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, FALLING);  // Configura las interrupciones
+    Usuario = 5;                                                       // Para pipe default
   }
 
   NRFsetup();
@@ -723,6 +716,7 @@ void loop() {
           t_ini = millis();
         }
       }
+      Pantallas(11);       // Pantalla vacia
       EnvioTransmisor(0);  // Solicitar asignacion de usuario
       delay(1000);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
@@ -736,6 +730,12 @@ void loop() {
         Conectado = EnvioTransmisor(2);  // Enviar nivel de bateria
         Pantallas(10);                   // Actualizar porcentaje de bateria
         t_ini = millis();
+      }
+
+      if (Presiono) {
+        Pantallas(11);  // Pantalla vacia
+        EnvioTransmisor(1);
+        Presiono = 0;
       }
 
       RecepcionTransmisor();
