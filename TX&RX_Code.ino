@@ -225,7 +225,9 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
         break;
       case 3:             // Recibe turno
         Turno = Dato[1];  // Guarda el turno del jugador que debe contestar
-        Pantallas(6);     // Pantalla Posicion del jugador y Turno actual
+        if (Posicion > 0) {
+          Pantallas(6);  // Pantalla Posicion del jugador y Turno actual
+        }
         break;
       case 4:                                              // Recibe puesto final
         PuestoFinal = Dato[1];                             // Guarda el puesto final de jugador
