@@ -212,6 +212,7 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
         }
         break;
       case 1:                                              // Inicia nueva pregunta
+        Posicion = 0;                                      // Reinicia la posicion del jugador
         NPregunta = Dato[1];                               // Guarda numero de pregunta
         PuntajeObtenido = Dato[2] * MultiplicadorPuntaje;  // Guarda el puntaje actual de jugador
         PuntajeaObtener = Dato[3] * MultiplicadorPuntaje;  // Guarda el puntaje que podria obtener con la pregunta
