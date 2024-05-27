@@ -10,6 +10,7 @@
 #define ALTITO 64
 #define baudios 115200
 #define botonPin 2
+#define ledBotonPin 3
 #define buzzerPin 7
 #define Canal 100
 #define Nintentos 3
@@ -100,6 +101,7 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
       var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
       if (!var2) {
         BotonActivado = 1;
+        digitalWrite(ledBotonPin, HIGH);  // Enciende el led del boton
       }
       break;
     case 2:                          // Enviar nivel de bateria
@@ -217,6 +219,7 @@ bool RecepcionTransmisor() {  // Recepcion de mensajes por Transceptor (lado Tra
         PuntajeaObtener = Dato[3] * MultiplicadorPuntaje;  // Guarda el puntaje que podria obtener con la pregunta
         Pantallas(5);                                      // Pantalla para iniciar nuevo juego y juego en curso
         BotonActivado = 1;
+        digitalWrite(ledBotonPin, HIGH);  // Enciende el led del boton
         break;
       case 2:                // Recibe posicion
         Posicion = Dato[1];  // Guarda la posicion del jugador que presiono el boton
@@ -642,6 +645,7 @@ void NRFsetup() {
 
 
 void Pulso() {
+  digitalWrite(ledBotonPin, LOW);  // Apaga led cuandos se presiona el boton
   if (BotonActivado) {
     if (Conectado) {
       EnvioTransmisor(1);
@@ -687,6 +691,7 @@ void setup() {
     Modo = 0;                                                         // Modo de transmision
     pinMode(botonPin, INPUT_PULLUP);                                  // Entrada con resistencia de PULLUP interna
     attachInterrupt(digitalPinToInterrupt(botonPin), Pulso, CHANGE);  // Configura las interrupciones
+    pinMode(ledBotonPin, OUTPUT);                                     // Configura como salida el led del boton
     Usuario = 5;                                                      // Para pipe default
   }
 
@@ -705,9 +710,11 @@ void loop() {
       BotonActivado = 1;
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
         if ((millis() - t_ini) < 500) {
-          Pantallas(1);  // Actualizacion poner "Presiona para conectar"
+          digitalWrite(ledBotonPin, HIGH);  // Enciende el led del boton
+          Pantallas(1);                     // Actualizacion poner "Presiona para conectar"
         } else if ((millis() - t_ini) < 1000) {
-          Pantallas(2);  // Actualizacion quitar "Presiona para conectar"
+          digitalWrite(ledBotonPin, LOW);  // Apaga el led del boton
+          Pantallas(2);                    // Actualizacion quitar "Presiona para conectar"
         } else {
           t_ini = millis();
         }
