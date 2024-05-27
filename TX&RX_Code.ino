@@ -89,6 +89,7 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
   bool var2 = 0;
   switch (var1) {
     case 0:                  // Solicitar asignacion de usuario
+      radio.flush_rx();      // Limpia el buffer de entrada
       Dato[0] = 0b00000000;  // Identificador
       Dato[1] = 0b00000000;
       var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
@@ -721,8 +722,10 @@ void loop() {
       }
       Pantallas(11);       // Pantalla vacia
       EnvioTransmisor(0);  // Solicitar asignacion de usuario
-      delay(1000);
-      Conectado = RecepcionTransmisor();  // Recibe usuario asignado
+      t_ini = millis();
+      while (!Conectado && ((millis() - t_ini) < 1000)) {
+        Conectado = RecepcionTransmisor();  // Recibe usuario asignado
+      }
       Presiono = 0;
     }
 
