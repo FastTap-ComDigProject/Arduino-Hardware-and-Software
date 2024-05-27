@@ -14,7 +14,7 @@
 #define buzzerPin 7
 #define Canal 100
 #define Nintentos 3
-#define Tintentos 500
+#define Tintentos 15  // Multiplicado por 250uS
 #define Tbateria 10000
 #define BateriaPin A0
 #define BateriaMax 5
@@ -88,13 +88,15 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
   radio.stopListening();          // Transceptor modo para transmitir
   bool var2;
   switch (var1) {
-    case 0:  // Solicitar asignacion de usuario
+    case 0:           // Solicitar asignacion de usuario
+      Pantallas(11);  // Pantalla vacia
       pantallita.clearDisplay();
       Dato[0] = 0b00000000;  // Identificador
       Dato[1] = 0b00000000;
       var2 = radio.write(&Dato, 2);  // Solo enviar el primer byte del vector Data
       break;
-    case 1:  // Enviar pulso de boton
+    case 1:           // Enviar pulso de boton
+      Pantallas(11);  // Pantalla vacia
       pantallita.clearDisplay();
       Dato[0] = 0b00000001;  // Identificador
       Dato[1] = 0b00000000;
@@ -102,6 +104,7 @@ bool EnvioTransmisor(int var1) {  // Envio de mensajes por Transceptor (lado Tra
       if (!var2) {
         BotonActivado = 1;
         digitalWrite(ledBotonPin, HIGH);  // Enciende el led del boton
+        Pantallas(UltimaPantalla);        // Vuelve a la ultima pantalla utilizada
       }
       break;
     case 2:                          // Enviar nivel de bateria
@@ -267,12 +270,12 @@ bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (la
           break;
         default:
           NRFsetup();
-          Pantallas(UltimaPantalla);
+          Pantallas(UltimaPantalla);  // Vuelve a la ultima pantalla utilizada
           break;
       }
     } else {
       NRFsetup();
-      Pantallas(UltimaPantalla);
+      Pantallas(UltimaPantalla);  // Vuelve a la ultima pantalla utilizada
     }
   }
 }
@@ -629,6 +632,7 @@ void NRFsetup() {
   radio.setChannel(Canal);                                          // Canal que trabajara el Transceptor
   radio.setPALevel(RF24_PA_MIN);                                    // Potencia de trabajo Maxima 0dbm
   radio.setDataRate(RF24_250KBPS);                                  // Velocidad de 250Kbps
+  radio.setRetries(Tintentos, Nintentos);                           // Configura reintentos
   if (Modo == 0) {                                                  // Modo de transmision
     radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lecura por defecto
     radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura por defecto
@@ -645,14 +649,14 @@ void NRFsetup() {
 
 
 void Pulso() {
-  digitalWrite(ledBotonPin, LOW);  // Apaga led cuandos se presiona el boton
   if (BotonActivado) {
+    digitalWrite(ledBotonPin, LOW);  // Apaga led cuandos se presiona el boton
+    BotonActivado = 0;
     if (Conectado) {
       EnvioTransmisor(1);
     } else {
       Presiono = 1;
     }
-    BotonActivado = 0;
   }
 }
 
@@ -719,7 +723,6 @@ void loop() {
           t_ini = millis();
         }
       }
-      Pantallas(11);       // Pantalla vacia
       EnvioTransmisor(0);  // Solicitar asignacion de usuario
       delay(1000);
       Conectado = RecepcionTransmisor();  // Recibe usuario asignado
