@@ -12,7 +12,7 @@
 #define botonPin 2
 #define ledBotonPin 3
 #define buzzerPin 7
-#define Canal 100
+#define Canal 27
 #define Nintentos 15
 #define Tintentos 15  // Multiplicado por 250uS
 #define Tbateria 10000
@@ -393,7 +393,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(2);
       pantallita.setCursor(10, 32);
       pantallita.print(F("Jugador "));
-      pantallita.print(Usuario);
+      pantallita.print(Usuario + 1);
       pantallita.setTextSize(1);
       pantallita.setCursor(7, 50);
       pantallita.print(F("Esperando inicio..."));
@@ -416,21 +416,24 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.print(F("Juego en curso..."));
       pantallita.fillRect(0, 16, 128, 48, WHITE);
       pantallita.drawFastVLine(64, 16, 48, BLACK);
-      pantallita.drawFastHLine(64, 40, 64, BLACK);
       pantallita.setTextColor(BLACK);
-      pantallita.setCursor(11, 19);
-      pantallita.print(F("Jugador"));
-      pantallita.setCursor(73, 17);
+      pantallita.setCursor(10, 20);
       pantallita.print(F("Pregunta"));
-      pantallita.setCursor(76, 41);
+      pantallita.setCursor(75, 20);
       pantallita.print(F("Puntaje"));
       pantallita.setTextSize(4);
       pantallita.setCursor(22, 32);
-      pantallita.print(Usuario);
-      pantallita.setTextSize(2);
-      pantallita.setCursor(94, 25);
       pantallita.print(NPregunta);
-      pantallita.setCursor(74, 49);
+      pantallita.setTextSize(3);
+      if (PuntajeObtenido > 999) {
+        pantallita.setCursor(63, 32);
+      } else if (PuntajeObtenido > 99) {
+        pantallita.setCursor(72, 32);
+      } else if (PuntajeObtenido > 9) {
+        pantallita.setCursor(81, 32);
+      } else {
+        pantallita.setCursor(90, 32);
+      }
       pantallita.print(PuntajeObtenido);
       pantallita.display();
       interrupts();
@@ -490,21 +493,15 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.print(F("Esperando :D"));
         pantallita.fillRect(0, 16, 128, 48, WHITE);
         pantallita.drawFastVLine(64, 16, 48, BLACK);
-        pantallita.drawFastHLine(64, 40, 64, BLACK);
         pantallita.setTextColor(BLACK);
-        pantallita.setCursor(11, 19);
-        pantallita.print(F("Jugador"));
-        pantallita.setCursor(73, 17);
+        pantallita.setCursor(10, 19);
         pantallita.print(F("Posicion"));
-        pantallita.setCursor(76, 41);
+        pantallita.setCursor(85, 17);
         pantallita.print(F("Turno"));
         pantallita.setTextSize(4);
         pantallita.setCursor(22, 32);
-        pantallita.print(Usuario);
-        pantallita.setTextSize(2);
-        pantallita.setCursor(94, 25);
         pantallita.print(Posicion);
-        pantallita.setCursor(74, 49);
+        pantallita.setCursor(85, 32);
         pantallita.print(Turno);
         pantallita.display();
       }
@@ -522,8 +519,8 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.setTextWrap(0);
         pantallita.fillRect(0, 16, 128, 48, WHITE);
         pantallita.setTextColor(BLACK);
-        pantallita.setCursor(3, 29);
-        pantallita.print(F("GANADOR"));
+        pantallita.setCursor(13, 29);
+        pantallita.print(F("¡GENIO!"));
         pantallita.display();
         for (int i = 0; i < 10; i++) {
           tone(buzzerPin, pgm_read_word_near(&TonosGanador[i]));  // Suena el buzzer
@@ -533,14 +530,14 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         for (int i = 0; i < 3; i++) {
           pantallita.fillRect(0, 16, 128, 48, BLACK);
           pantallita.setTextColor(WHITE);
-          pantallita.setCursor(3, 29);
-          pantallita.print(F("GANADOR"));
+          pantallita.setCursor(20, 29);
+          pantallita.print(F("WOW"));
           pantallita.display();
           delay(500);
           pantallita.fillRect(0, 16, 128, 48, WHITE);
           pantallita.setTextColor(BLACK);
-          pantallita.setCursor(3, 29);
-          pantallita.print(F("GANADOR"));
+          pantallita.setCursor(13, 29);
+          pantallita.print(F("GENIO"));
           pantallita.display();
           delay(500);
         }
@@ -560,7 +557,7 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      pantallita.print(F("Puntuacion: "));
+      pantallita.print(F("Con: "));
       pantallita.print(PuntajeObtenido);
       pantallita.print(F("pts"));
       pantallita.setTextColor(WHITE);
@@ -647,21 +644,22 @@ void NRFsetup() {
   }
 
   radio.setChannel(Canal);                                          // Canal que trabajara el Transceptor
-  radio.setPALevel(RF24_PA_MIN);                                   // Potencia de trabajo
+  radio.setPALevel(RF24_PA_MIN);                                    // Potencia de trabajo
   radio.setDataRate(RF24_250KBPS);                                  // Velocidad de 250Kbps
   radio.setRetries(Tintentos, Nintentos);                           // Configura reintentos
   if (Modo == 0) {                                                  // Modo de transmision
     radio.openReadingPipe(0, pgm_read_word_near(&Pipes[Usuario]));  // Asigna pipe de lecura por defecto
     radio.openWritingPipe(pgm_read_word_near(&Pipes[Usuario]));     // Asigna pipe de escritura por defecto
-  } else {                                                          // Modo de recepcion
+    radio.stopListening();
+  } else {  // Modo de recepcion
     radio.openReadingPipe(0, pgm_read_word_near(&Pipes[0]));
     radio.openReadingPipe(1, pgm_read_word_near(&Pipes[1]));
     radio.openReadingPipe(2, pgm_read_word_near(&Pipes[2]));  // Asigna pipe de lectura para los usuarios
     radio.openReadingPipe(3, pgm_read_word_near(&Pipes[3]));
     radio.openReadingPipe(4, pgm_read_word_near(&Pipes[4]));
     radio.openReadingPipe(5, pgm_read_word_near(&Pipes[5]));  // Asigna pipe de lecura por defecto
+    radio.startListening();
   }
-  radio.startListening();
 }
 
 
@@ -721,9 +719,10 @@ void loop() {
     Presiono = 0;
 
     while (!Conectado) {  // Ciclo cuando no esta conectado
-      Pantallas(0);       // Pantalla Transmisor
-      MedirBateria();     // Solicita medir nivel de bateria
-      Pantallas(10);      // Actualizar porcentaje de bateria
+      radio.stopListening();
+      Pantallas(0);    // Pantalla Transmisor
+      MedirBateria();  // Solicita medir nivel de bateria
+      Pantallas(10);   // Actualizar porcentaje de bateria
       BotonActivado = 1;
       while (Presiono == 0) {  // Si no se ha presionado el boton sigue el bucle
         if ((millis() - t_ini) < 500) {
