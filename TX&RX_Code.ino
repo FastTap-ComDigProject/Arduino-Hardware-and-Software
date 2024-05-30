@@ -13,7 +13,7 @@
 #define ledBotonPin 3
 #define buzzerPin 7
 #define Canal 100
-#define Nintentos 3
+#define Nintentos 15
 #define Tintentos 15  // Multiplicado por 250uS
 #define Tbateria 10000
 #define BateriaPin A0
@@ -25,9 +25,11 @@ RF24 radio(8, 10);  // CE, CSN
 Adafruit_SSD1306 pantallita(ANCHITO, ALTITO, &Wire, 3);
 
 const uint8_t unsigned PROGMEM Pipes[6][5] = { { "1Pipe" }, { "2Pipe" }, { "3Pipe" }, { "4Pipe" }, { "5Pipe" }, { "dPipe" } };
-bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
+bool PipeOcupada[5] = { 0, 0, 0, 0, 0 }, Presionaron[5] = { 0, 0, 0, 0, 0 }, Modo, Conectado;
 
-const int unsigned PROGMEM Tonos[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
+const int unsigned PROGMEM TonosTurno[6] = { 1000, 1500, 2000, 1000, 1500, 2000 };
+const int unsigned PROGMEM TonosGanador[10] = { 1000, 1500, 2000, 1750, 2000, 2500, 3000, 2750, 3000, 4000 };
+const int unsigned PROGMEM TonosInicio[32] = { 2637, 2637, 2637, 2637, 0, 0, 2637, 2637, 0, 0, 2093, 2093, 2637, 2637, 0, 0, 3136, 3136, 0, 0, 0, 0, 0, 0, 1568, 1568, 0, 0, 0, 0, 0, 0 };
 int unsigned PuntajeObtenido, PuntajeaObtener;
 uint8_t unsigned Dato[4] = { 0, 0, 0, 0 }, NPregunta, Nconectados, Usuario, PorcentajeBateria, Posicion, Turno, Correcto, PuestoFinal, UltimaPantalla;
 
@@ -117,12 +119,15 @@ void EnvioReceptor(int var1) {  // Envio de mensajes por Transceptor (lado Recep
     case 0:                                                      // Envio asignacion de usuario
       for (Usuario = 0; Usuario < 5; Usuario++) {                // Ciclo de 0-4
         if (!PipeOcupada[Usuario]) {                             // Recorre todo el vector en busca de una pipe disponible
-          PipeOcupada[Usuario] = 1;                              // Pone la pine como ocupada
           Dato[0] = 0b00000000;                                  // Identificador
           Dato[1] = Usuario;                                     // Usuario a enviar
           radio.openWritingPipe(pgm_read_word_near(&Pipes[5]));  // Asigna pipe de escritura
           radio.stopListening();                                 // Transceptor modo para transmitir
-          radio.write(&Dato, 2);                                 // Envia los primeros 2 bytes del vector Data
+          if (radio.write(&Dato, 2)) {                           // Envia los primeros 2 bytes del vector Data
+            PipeOcupada[Usuario] = 1;                            // Pone la pine como ocupada
+            EnvioSerial(1);                                      // Envia usuario conectado
+            Nconectados++;                                       // Contador de usuarios conectados
+          }
           break;
         }
       }
@@ -251,16 +256,15 @@ bool RecepcionReceptor() {          // Recepcion de mensajes por Transceptor (la
       switch (Dato[0]) {
         case 0:  // Recibe solicitud para asignacion de usuario
           if (Usuario == 5) {
-            EnvioReceptor(0);   // Envio asignacion de usuario
-            if (Usuario < 5) {  // No envia mensaje serial si se desbordan los usuarios
-              EnvioSerial(1);   // Envia usuario conectado
-              Nconectados++;    // Contador de usuarios conectados
-            }
+            EnvioReceptor(0);  // Envio asignacion de usuario
           }
           Pantallas(3);  // Pantalla Receptor
           break;
-        case 1:            // Recibe pulso de boton
-          EnvioSerial(3);  // Envia pulso de boton
+        case 1:                         // Recibe pulso de boton
+          if (!Presionaron[Usuario]) {  // Si no presiono antes
+            EnvioSerial(3);             // Envia pulso de boton
+          }
+          Presionaron[Usuario] = 1;  // Guarda el usuario que presiono el boton
           break;
         case 2:                         // Recibe nivel de bateria
           PorcentajeBateria = Dato[1];  // Guarda nivel de bateria
@@ -297,7 +301,12 @@ bool RecepcionSerial() {  // Recepcion de mensajes por comunicacion serial (lado
         PuntajeObtenido = Serial.read();
         EnvioReceptor(1);  // Iniciar nueva pregunta
         break;
-      case 2:                                 // Recibe indicacion para iniciar nueva pregunta
+      case 2:  // Recibe indicacion para iniciar nueva pregunta
+        Presionaron[0] = 0;
+        Presionaron[1] = 0;
+        Presionaron[2] = 0;
+        Presionaron[3] = 0;
+        Presionaron[4] = 0;
         while (!(Serial.available() > 1)) {}  // Espera a recibir 2 bytes
         NPregunta = Serial.read();
         PuntajeaObtener = Serial.read();
@@ -442,6 +451,18 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
         pantallita.print(F("Jugador "));
         pantallita.print(Usuario);
         pantallita.setTextSize(3);
+        pantallita.fillRect(0, 16, 128, 48, WHITE);
+        pantallita.setTextColor(BLACK);
+        pantallita.setCursor(49, 18);
+        pantallita.print(F("TU"));
+        pantallita.setCursor(19, 41);
+        pantallita.print(F("TURNO"));
+        pantallita.display();
+        for (int i = 0; i < 6; i++) {
+          tone(buzzerPin, pgm_read_word_near(&TonosTurno[i]));  // Suena el buzzer
+          delay(70);
+        }
+        noTone(buzzerPin);             // Detenemos el sonido del buzzer
         for (int i = 0; i < 5; i++) {  // Animacion si es el TurnoActual del jugador
           pantallita.fillRect(0, 16, 128, 48, BLACK);
           pantallita.setTextColor(WHITE);
@@ -500,12 +521,22 @@ void Pantallas(int var1) {  // Instrucciones para todos los estados de la pantal
       pantallita.setTextSize(1);
       pantallita.setTextColor(WHITE);
       pantallita.setCursor(0, 4);
-      if (Correcto) {  // Si el usuario es acerto la pregunta
+      if (Correcto) {  // Si el usuario acerto la pregunta
         pantallita.print(F("Ganaste: "));
         pantallita.print(PuntajeaObtener);  // Puntos ganados
         pantallita.print(F("pts"));
         pantallita.setTextSize(3);
         pantallita.setTextWrap(0);
+        pantallita.fillRect(0, 16, 128, 48, WHITE);
+        pantallita.setTextColor(BLACK);
+        pantallita.setCursor(3, 29);
+        pantallita.print(F("GANADOR"));
+        pantallita.display();
+        for (int i = 0; i < 10; i++) {
+          tone(buzzerPin, pgm_read_word_near(&TonosGanador[i]));  // Suena el buzzer
+          delay(50);
+        }
+        noTone(buzzerPin);  // Detenemos el sonido del buzzer
         for (int i = 0; i < 5; i++) {
           pantallita.fillRect(0, 16, 128, 48, BLACK);
           pantallita.setTextColor(WHITE);
@@ -623,7 +654,7 @@ void NRFsetup() {
   }
 
   radio.setChannel(Canal);                                          // Canal que trabajara el Transceptor
-  radio.setPALevel(RF24_PA_MIN);                                    // Potencia de trabajo Maxima 0dbm
+  radio.setPALevel(RF24_PA_HIGH);                                   // Potencia de trabajo
   radio.setDataRate(RF24_250KBPS);                                  // Velocidad de 250Kbps
   radio.setRetries(Tintentos, Nintentos);                           // Configura reintentos
   if (Modo == 0) {                                                  // Modo de transmision
@@ -665,7 +696,7 @@ void setup() {
     pantallita.fillCircle(64, 32, i * 1, BLACK);
     pantallita.drawBitmap(32, 0, LogoUMNG, 64, 77, WHITE);  // Animaciones con el logoUMNG
     pantallita.display();
-    tone(buzzerPin, pgm_read_word_near(&Tonos[i]));  // Suena el buzzer a una frecuencia con multiplos de 150
+    tone(buzzerPin, pgm_read_word_near(&TonosInicio[i]));  // Suena el buzzer a una frecuencia con multiplos de 150
   }
   noTone(buzzerPin);  // Detenemos el sonido del buzzer
 
