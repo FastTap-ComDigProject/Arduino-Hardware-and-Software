@@ -647,7 +647,7 @@ void NRFsetup() {
   }
 
   radio.setChannel(Canal);                                          // Canal que trabajara el Transceptor
-  radio.setPALevel(RF24_PA_LOW);                                   // Potencia de trabajo
+  radio.setPALevel(RF24_PA_MIN);                                   // Potencia de trabajo
   radio.setDataRate(RF24_250KBPS);                                  // Velocidad de 250Kbps
   radio.setRetries(Tintentos, Nintentos);                           // Configura reintentos
   if (Modo == 0) {                                                  // Modo de transmision
